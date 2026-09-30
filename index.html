@@ -814,10 +814,266 @@ const YUZU = {
   ],
 };
 
+/* ============================================================
+   アボカド(食べたあとの種から)
+   ============================================================ */
+function avoDates(p){
+  const m=+p.month||5, start=D(m,15);
+  const warm=m==5||m==7;
+  const germDay=(warm?35:65)+(p.prep=='soil'?10:0);
+  const finalY=7;                                   // 種から7年目に花と実
+  const endDay=daysBetween(start,DY(finalY,12,1));
+  const firstSummer=daysBetween(start,m<=7?DY(0,8,1):DY(1,8,1));
+  const firstWinter=daysBetween(start,m==1?DY(0,1,25):DY(1,1,25));
+  return {start,germDay,finalY,endDay,firstSummer,firstWinter,potDay:germDay+30};
+}
+function avoFruits(S){
+  if(S.dead||S.noBloom)return 0;
+  return [0,0,2,4,7][S.tier()];
+}
+const AVOCADO = {
+  name:'アボカド', kind:'常緑高木・果樹', icon:'avocado', open:true, multiYear:true, tickMs:70, level:'★★★ 約7年',
+  desc:'スーパーで買ったアボカド(ハス種)を食べたあとの種から育てる。芽は出しやすいけれど、実がなるまでは長い道のり。',
+  params:[
+    {id:'prep',label:'種のじゅんび',opts:[
+      ['water','果肉を洗い流し、とがった方を上にして、下1/3を水につける(水は毎日かえる)'],
+      ['soil','果肉を洗い流し、とがった方を上にして、土に半分うめる'],
+      ['upside','果肉を洗い流し、とがった方を下にして水につける'],
+      ['flesh','果肉がついたまま水につけ、水はつぎ足すだけ']]},
+    {id:'month',label:'はじめる月',opts:[[5,'5月'],[7,'7月'],[11,'11月'],[1,'1月']]},
+    {id:'place',label:'春〜秋の置き場所',opts:[['sun','日当たりのよい屋外'],['half','午前は日なた、午後は日かげ'],['shade','一日中日かげ'],['indoor','一年中、室内の窓ぎわ']]},
+    {id:'pot',label:'育てる入れ物',opts:[['l','鉢(2年に1回、一回り大きな鉢へ)'],['s','小さな鉢のまま'],['g','庭に直接(地植え)']]},
+    {id:'wpot',label:'冬の置き場所',when:p=>p.pot&&p.pot!='g'&&p.place!='indoor',opts:[['room','日当たりのよい部屋(10〜15℃)'],['heater','暖房のそば(20℃以上)'],['cover','外で不織布をかける'],['none','外のまま何もしない']]},
+    {id:'wground',label:'冬の寒さ対策',when:p=>p.pot=='g',opts:[['cover','不織布でおおい、根元にワラをしく'],['none','何もしない']]},
+    {id:'soil',label:'土',opts:[['mix','赤玉土7:腐葉土3(水はけがよい)'],['clay','庭のねば土']]},
+    {id:'water',label:'水やり',opts:[['dry','土の表面が乾いたらたっぷり(冬は控えめ)'],['daily','一年中、毎日たっぷり'],['rare','ほとんどやらない']]},
+    {id:'fert',label:'肥料',opts:[['good','3月・6月・9月に適量'],['none','なし'],['lots','早く大きくしたいので毎週たっぷり']]},
+    {id:'prune',label:'剪定',opts:[['pinch','高さ50〜60cmで先を摘み(摘心)、枝を増やす(4〜6月)'],['none','切らずに、まっすぐ伸ばす'],['winter','冬に大きく切りつめる']]},
+    {id:'partner',label:'受粉のあいて',opts:[['none','この1本だけ'],['b','B型の苗木(ベーコン)を近くに置く'],['ab','A型(メキシコーラ)とB型(ベーコン)の苗木を1本ずつ置く']]},
+  ],
+  evaluate(p){
+    const r=newEval(),t=avoDates(p),pot=p.pot!='g',m=+p.month;
+    const warmRoom=p.wpot=='heater'||p.place=='indoor';
+    // 種
+    if(p.prep=='water') r.good('とがった方を上に水栽培。根が出るようすを観察できた');
+    else if(p.prep=='soil') r.info('土にまいたので、根が出るようすは見えなかった(発芽は少しおそめ)');
+    else if(p.prep=='upside') r.kill(t.germDay+25,'とがった方が芽の出る側。上下が逆で、芽も根もうまく伸びなかった',true);
+    else r.kill(t.germDay+10,'残った果肉がくさって水がにごり、種もくさってしまった',true);
+    // 月
+    if(m==5||m==7) r.good(`${m}月は暖かく、発芽に必要な20℃以上がそろった`);
+    else if(warmRoom) r.bad(10,'寒い時期だったが、暖かい部屋でなんとか発芽した');
+    else r.kill(t.germDay+20,'寒い時期で20℃に届かず、芽が出ないまま種がしぼんだ',true);
+    // 場所
+    if(p.place=='sun') r.good('日当たりのよい屋外で、葉が大きく厚く育った');
+    else if(p.place=='half') r.good('午後の強い日ざしをさけ、若い葉が日焼けしなかった');
+    else if(p.place=='shade'){r.bad(25,'日かげでは枝がひょろひょろで、花芽ができにくい');r.capTo(2)}
+    else {r.bad(25,'窓ごしの光では足りず、ひょろ長く育った');r.capTo(2);r.bad(0,'室内には、花粉を運ぶ虫が来ない')}
+    // 入れ物・冬
+    if(p.pot=='l') r.good('2年に1回植えかえ、根がのびのび育った');
+    else if(p.pot=='s'){r.bad(25,'小さな鉢のままで根がつまり、木が大きくなれなかった');r.capTo(2)}
+    else r.info('地植え。根は広がるが、冬は外で寒さにたえるしかない');
+    if(p.pot=='g'){
+      if(p.wground=='cover') r.bad(15,'ハス種の若木は寒さに弱い。不織布でも寒さで葉がかなり落ちた');
+      else r.kill(t.firstWinter,'ハス種の若木は寒さに弱く、関東の冬の霜で枯れた');
+    }else if(p.place!='indoor'){
+      if(p.wpot=='room') r.good('冬は10〜15℃の部屋で。この「涼しさ」が花芽を作る合図になった');
+      else if(p.wpot=='heater') r.nob('冬もずっと暖かく、花芽を作る合図(冬の涼しさ)がなかった');
+      else if(p.wpot=='cover') r.bad(20,'外の不織布だけでは寒く、毎年葉が落ちて育ちがおくれた');
+      else r.kill(t.firstWinter,'冬の外の寒さと霜で、若い木が枯れた(ハス種は寒さに弱い)');
+    }else r.nob('一年中暖かい室内で、花芽を作る合図(冬の涼しさ)がなかった');
+    // 土・水
+    if(p.soil=='mix') r.good('水はけのよい土で、根ぐされしなかった');
+    else r.bad(20,'ねば土は水はけが悪く、根ぐされしやすいアボカドには合わない');
+    if(p.water=='dry') r.good('乾いたらたっぷり、冬は控えめに。根が元気だった');
+    else if(p.water=='daily'){ if(p.soil=='clay') r.kill(t.germDay+90,'水はけの悪い土に毎日水をやり、根ぐされで枯れた'); else r.bad(25,'水のやりすぎで根が弱った。アボカドは根ぐされしやすい'); }
+    else { if(pot) r.kill(t.firstSummer,'夏に鉢の土がカラカラになり、水切れで枯れた'); else r.bad(20,'夏の水不足で、葉がたくさん落ちた'); }
+    // 肥料
+    if(p.fert=='good') r.good('3月・6月・9月の肥料で、しっかり育った');
+    else if(p.fert=='none') r.bad(15,'肥料がなく、葉の色がうすかった');
+    else r.bad(20,'肥料が多すぎて葉の先が茶色くこげた。アボカドは肥料や塩分に弱い');
+    // 剪定
+    if(p.prune=='pinch') r.good('摘心で枝が増え、花の咲く枝がたくさんできた');
+    else if(p.prune=='none'){r.bad(15,'一本だけひょろりと天井まで伸び、花の咲く枝が少なかった');r.capTo(3)}
+    else r.bad(20,'寒い時期に大きく切って、木が弱った');
+    return r;
+  },
+  timeline(p){return avoDates(p)},
+  init(S){
+    // 種から育てた木が A型かB型かは、咲くまでわからない
+    const type=Math.random()<.5?'A':'B';S.flags.type=type;
+    const p=S.p;
+    if(p.partner=='ab') S.notes.push({t:'good',text:`育てた木は${type}型だった。A型とB型の苗木を両方置いたので、どちらでもうまく受粉できた`});
+    else if(p.partner=='b'){
+      if(type=='A') S.notes.push({t:'good',text:'育てた木はA型だった。B型のベーコンと花の開く時間がずれて、うまく受粉できた'});
+      else {S.r.cap=Math.min(S.r.cap,2);S.notes.push({t:'bad',text:'育てた木はB型だった。B型どうしでは花の開く時間が同じで、受粉しにくかった',d:40})}
+    }else {S.r.cap=Math.min(S.r.cap,2);S.notes.push({t:'bad',text:`育てた木は${type}型。1本だけでは、めしべとおしべの開く時間がずれて受粉しにくい`,d:40})}
+  },
+  eventCount:()=>3,
+  eventMinDay:(p,tl)=>tl.germDay+10,
+  step(S){
+    const m=S.date.getMonth()+1,T=S.tl;
+    if(S.day>=T.endDay-25)return 1;
+    if(S.day<T.potDay+10)return 3;
+    if(yOf(S.date)==T.finalY&&m>=4)return 3;
+    if(m==12||m<=2)return 14;
+    return 8;
+  },
+  startLog(S){const st=S.tl.start;return `${st.getMonth()+1}月${st.getDate()}日、アボカドを食べて、大きな種を取っておいた。`},
+  container(S){ if(S.p.prep=='water'&&S.day<S.tl.potDay)return 'jar'; return S.p.pot=='s'||S.day<S.tl.potDay+60?'s':S.p.pot },
+  indoor(S){
+    const p=S.p,md=mdOf(S.date);
+    if(this.container(S)=='jar')return true;
+    if(p.place=='indoor')return true;
+    if(p.pot!='g'&&(p.wpot=='room'||p.wpot=='heater')&&(md>=1025||md<=430))return true;
+    return false;
+  },
+  milestones(S,say){
+    const T=S.tl,d=S.day,y=yOf(S.date),md=mdOf(S.date),p=S.p;
+    if(p.prep=='water'&&d>=3)say('prep','つまようじを3本さして、コップの水に種をのせた。');
+    if(p.prep=='soil'&&d>=3)say('prep','種を土に半分うめた。');
+    if(S.noSprout){ if(d>=T.germDay+5)say('nog','いつまでたっても、芽も根も出ない…'); return; }
+    if(p.prep=='water'&&d>=T.germDay-15)say('root','種の底から、白い根が出てきた！');
+    if(d>=T.germDay)say('germ','種がパカッと割れて、芽が出た！');
+    if(p.prep=='water'&&d>=T.potDay)say('pot','根がのびたので、土の鉢に植えかえた。');
+    if(d<T.germDay)return;
+    if(this.indoor(S)&&p.place!='indoor'&&md>=1025&&md<=1110)say('in'+y,'寒くなってきたので、部屋の中に入れた。');
+    if(p.pot!='g'&&(p.wpot=='room'||p.wpot=='heater')&&p.place!='indoor'&&md>=501&&md<=520&&d>T.potDay)say('out'+y,'暖かくなったので、外に出した。');
+    if(md>=601&&md<=620&&y>0&&y<T.finalY)say('yr'+y,`${Math.floor(d/365)+1}年目。まだ花は咲かない。`);
+    if(y==T.finalY){
+      if(md>=401)say('fl', S.noBloom?'7年目の春。今年も花が咲かない…':'黄緑色の小さな花が、たくさん咲いた！');
+      if(!S.noBloom&&md>=701)say('fr','緑の実が、少しずつ大きくなってきた。');
+      if(S.flags.picked=='ripen'&&md>=1122)say('rp','皮が黒っぽくなり、指で押すとやわらかい。食べごろだ！');
+      if(S.flags.picked=='fridge'&&md>=1122)say('rp','冷蔵庫のアボカドは、まだカチカチ…');
+      if(S.flags.rotten&&md>=1122)say('rp','木の上の実は、かたいまま黒ずんできた…');
+    }
+  },
+  rank(t,S){return ['枯れてしまった…','アボカドは食べられなかった','アボカドが少しだけとれた','アボカドが実った！','たくさん実って、おいしく追熟できた！'][t]},
+  extraNotes(S){
+    const n=[];
+    if(S.tier()>=2)n.push({t:'info',text:'種から育てた木の実は、親のハスとは少しちがう味かもしれない。お店の接ぎ木苗なら3〜4年で実がなる'});
+    return n;
+  },
+  drawPlant(px,S,y0){
+    const T=S.tl,y=yOf(S.date),md=mdOf(S.date),d=S.day,dead=S.dead;
+    const cont=this.container(S);
+    const seedC='#8a5a3a';
+    // コップの水栽培
+    if(cont=='jar'){
+      px(26,44,'#dff0f8',12,18);px(26,44,'#a9cfe0',1,18);px(37,44,'#a9cfe0',1,18);px(26,61,'#a9cfe0',12,1);
+      px(27,50,S.noSprout&&d>T.germDay?'#b8c49a':'#9fd0ea',10,11);
+      for(let j=0;j<8;j++){const w=j<2||j>5?5:7;px(32-w/2,42+j,dead?'#6d5a4a':seedC,w,1)}
+      line(px,22,46,28,47,'#d9b27a');line(px,36,47,42,46,'#d9b27a');line(px,31,50,29,54,'#d9b27a');
+      if(!S.noSprout&&d>=T.germDay-15){const L=Math.min(10,(d-(T.germDay-15))/3);px(32,50,'#f5f0e6',1,L)}
+      if(!S.noSprout&&d>=T.germDay){const h=Math.min(14,(d-T.germDay)/2);px(32,42-h,'#5a7a3a',1,h);if(h>6){px(29,42-h,'#3f8f3a',3,2);px(33,42-h+1,'#3f8f3a',3,2)}}
+      return;
+    }
+    if(S.noSprout||d<T.germDay){for(let j=0;j<5;j++)px(30,y0-3+j,seedC,4,1);return}
+    const yrs=(d-T.germDay)/365;
+    let H=Math.round(5+yrs*5.5);
+    if(this.container(S)=='s')H=Math.min(H,18);
+    H=Math.min(H,y0-10);
+    const bark=dead?'#8d7a6a':'#6b5a3a';
+    const pinch=S.p.prune=='pinch';
+    if(H<10){
+      px(32,y0-H,dead?'#8d7a6a':'#5a7a3a',1,H);
+      const c=dead?'#a1887f':'#3f8f3a';
+      px(28,y0-H,c,4,2);px(33,y0-H-1,c,4,2);px(29,y0-H+3,c,3,2);
+      return;
+    }
+    const trunkTop=y0-Math.round(H*(pinch?0.45:0.3));
+    px(31,trunkTop,bark,2,y0-trunkTop);
+    const narrow=!pinch;
+    const cx=32,cy=y0-Math.round(H*(narrow?0.62:0.7)),rx=Math.min(26,Math.round(H*(narrow?0.22:0.48))),ry=Math.max(5,Math.round(H*(narrow?0.42:0.32)));
+    line(px,32,trunkTop,cx-rx*0.6,cy,bark);line(px,32,trunkTop,cx+rx*0.6,cy-1,bark);
+    const coldDrop=!this.indoor(S)&&(S.p.pot=='g'||S.p.wpot=='cover')&&(md>=101&&md<=331);
+    const dens=dead?.1:coldDrop?.35:.8;
+    const newLeaf=md>=420&&md<=531;
+    for(let x=cx-rx;x<=cx+rx;x++)for(let yy=cy-ry;yy<=cy+ry;yy++){
+      if(((x-cx)/rx)**2+((yy-cy)/ry)**2>1)continue;
+      const h=hash(x,yy);if(h>=dens)continue;const k=hash(yy,x);
+      const c=dead?'#a1887f':newLeaf&&k<.25?'#b0704a':['#3f8f3a','#2f7a2f','#5aa84a'][Math.floor(k*3)];
+      px(x,yy,c);
+    }
+    if(dead)return;
+    // 花(最終年の4〜5月)
+    if(y==T.finalY&&!S.noBloom&&md>=405&&md<=520){
+      for(let x=cx-rx;x<=cx+rx;x++)for(let yy=cy-ry;yy<=cy;yy++){
+        if(((x-cx)/rx)**2+((yy-cy)/ry)**2<=.95&&hash(x+5,yy+9)<.12)px(x,yy,'#d8e36a');
+      }
+    }
+    // 実(6月〜収穫まで)
+    const nf=avoFruits(S);
+    if(y==T.finalY&&nf>0&&md>=610&&!S.flags.picked){
+      const big=md>=801;
+      for(let i=0;i<nf;i++){
+        const fx=cx-rx*0.7+hash(i,11)*rx*1.4, fy=cy+hash(11,i)*ry*0.8;
+        px(fx+1,fy-1,'#5a4a2a');
+        const col=S.flags.rotten?'#5a4030':'#9cc545', edge=S.flags.rotten?'#3a2820':'#3f5f1a';
+        if(big){px(fx-1,fy-1,edge,5,6);px(fx,fy,col,3,4);px(fx+1,fy-1,col,1,1);px(fx,fy,'#c4e070')}else{px(fx-1,fy-1,edge,4,4);px(fx,fy,col,2,2)}
+      }
+    }
+    // 収穫したアボカド(床)
+    if(S.flags.picked&&nf>0){
+      const ripe=S.day>=S.tl.endDay-9&&S.flags.picked=='ripen';
+      for(let i=0;i<Math.min(nf,4);i++){const fx=45+i*5,fy=64;px(fx,fy,ripe?'#2a1a28':'#2f4a14',4,5);px(fx+1,fy+1,ripe?'#4a2e46':'#6a9a2a',2,3);px(fx+1,fy-1,'#5a4a2a')}
+    }
+  },
+  events:[
+    {id:'murky',force:true,cond:p=>p.prep=='water',dayRange:(p,tl)=>[12,20],title:'水がにごってきた',text:()=>'コップの水が、少しにごってきた。',
+      choices:()=>[
+        {label:'コップと種をやさしく洗って、水をとりかえる',ef:{good:true,note:'水をきれいにとりかえ、種がくさらなかった'}},
+        {label:'減ったぶんだけ、水をつぎ足す',ef:{fatal:'にごった水で種がくさってしまった'}}]},
+    {id:'repot',from:[5,10],to:[6,20],cond:p=>p.pot=='l',yearOk:y=>y>=2,title:'根がいっぱい',text:()=>'鉢の底の穴から、根が出てきている。',
+      choices:()=>[
+        {label:'根をくずさないように、一回り大きな鉢へ植えかえる',ef:{good:true,note:'5〜6月に植えかえ、根がのびのび育った'}},
+        {label:'そのままにする',ef:{q:-20,note:'根づまりで、葉が黄色くなった'}}]},
+    {id:'sunburn',from:[7,25],to:[8,25],weather:'sun',temp:36,cond:p=>p.place=='sun',yearOk:y=>y<=2,title:'葉が茶色に',text:()=>'最高気温36℃。午後の強い日ざしで、若い葉のふちが茶色くなってきた。',
+      choices:()=>[
+        {label:'夏のあいだは、午後に日かげになる場所へ移す',ef:{good:true,note:'真夏の西日をさけて、葉の日焼けを防いだ'}},
+        {label:'水を1日5回かける',ef:{q:-15,note:'日焼けは止まらず、水のやりすぎで根も弱った'}},
+        {label:'そのまま',ef:{q:-10,note:'葉が日焼けして落ちた'}}]},
+    {id:'takein',from:[10,20],to:[11,10],cond:p=>p.pot!='g'&&(p.wpot=='room'||p.wpot=='heater')&&p.place!='indoor',yearOk:y=>y>=0,title:'朝の冷えこみ',text:()=>'朝の気温が10℃を下回った。',
+      choices:()=>[
+        {label:'部屋の中に取りこむ',ef:{good:true,note:'10℃を下回るころに、部屋へ取りこんだ'}},
+        {label:'12月まで外に置いておく',ef:{q:-15,note:'寒さで葉が傷み、たくさん落ちた'}}]},
+    {id:'mite',from:[1,10],to:[3,10],cond:p=>p.pot!='g',yearOk:y=>y>=1,title:'葉が白っぽい',text:()=>'葉の色がかすれて、裏に小さな虫が…。乾いた部屋で増える「ハダニ」だ。',
+      choices:()=>[
+        {label:'葉の表と裏に霧吹きで水をかける(葉水)',ef:{good:true,note:'葉水でハダニを防いだ'}},
+        {label:'放っておく',ef:{q:-15,note:'ハダニが増えて、葉がたくさん落ちた'}}]},
+    {id:'scale',from:[5,1],to:[7,31],yearOk:y=>y>=2,title:'枝に白いつぶ',text:()=>'枝や葉のつけ根に、白い小さなつぶがびっしり…。「カイガラムシ」だ。',
+      choices:()=>[
+        {label:'歯ブラシでこすり落とす',ef:{good:true,note:'カイガラムシを歯ブラシでこすり落とした'}},
+        {label:'放っておく',ef:{q:-20,note:'カイガラムシが増え、葉が黒いすす病になった'}}]},
+    {id:'typhoon',from:[8,20],to:[9,25],weather:'storm',cond:p=>p.place!='indoor',yearOk:y=>y>=1,title:'台風接近！',text:()=>'今夜、大きな台風がやってくる。',
+      choices:p=>[
+        {label:p.pot=='g'?'支柱を立てて、幹をしっかりしばる':'鉢を家の中か、風の当たらない所へ',ef:{good:true,note:'台風の前にしっかり備えた'}},
+        {label:'何もしない',ef:{q:-15,note:'大きな葉が風であおられ、枝が折れた'}}]},
+    {id:'frost',from:[1,15],to:[2,10],weather:'snow',temp:-3,cond:p=>p.pot=='g'&&p.wground=='cover',yearOk:y=>y>=2,title:'強い寒波',text:()=>'今夜はマイナス3℃の予報。',
+      choices:()=>[
+        {label:'不織布を二重にして、根元のワラも増やす',ef:{good:true,note:'寒波の夜を二重の不織布でしのいだ'}},
+        {label:'いつもの不織布だけ',ef:{q:-20,note:'寒さで枝先が枯れこんだ'}}]},
+    {id:'bloom',force:true,cond:(p,tl,S)=>!S.noBloom,yearOk:(y,p,tl)=>y==tl.finalY,from:[4,20],to:[5,5],title:'花が咲いた！',text:(p,S)=>`7年目、ついに花が咲いた！ 観察すると、この木は${S.flags.type}型。午前と午後で、花のようすが変わるみたい。`,
+      choices:p=>[
+        {label:'花粉が出ている花から、めしべが開いている花へ、筆でつける',ef:p.place=='indoor'?{good:true,q:10,cap:3,note:'室内でも、筆で人工受粉して実がついた'}:{good:true,q:10,note:'筆で人工受粉して、実がつきやすくなった'}},
+        {label:'虫にまかせる',ef:p.place=='indoor'?{cap:1,note:'室内には虫がいないので、受粉できなかった'}:{note:'虫にまかせた'}}]},
+    {id:'drop',force:true,cond:(p,tl,S)=>!S.noBloom,yearOk:(y,p,tl)=>y==tl.finalY,from:[6,10],to:[6,25],title:'実が落ちた！',text:()=>'せっかくついた小さな実が、ポロポロたくさん落ちている！',
+      choices:p=>[
+        {label:'自然なことなので、残った実を見守る',ef:{good:true,note:'アボカドは、ついた実のほとんどが自然に落ちる(生理落果)。残った実が育った'}},
+        {label:'あわてて肥料をたっぷりあげる',ef:{q:-15,note:'肥料で根がいたみ、さらに実が落ちた'}},
+        {label:'あわてて毎日水をたっぷりやる',ef:p.soil=='clay'?{fatal:'水のやりすぎで根ぐされし、枯れてしまった'}:{q:-15,note:'水のやりすぎで根が弱り、さらに実が落ちた'}}]},
+    {id:'harvest',force:true,cond:(p,tl,S)=>!S.noBloom,yearOk:(y,p,tl)=>y==tl.finalY,from:[11,10],to:[11,14],title:'収穫のとき？',text:()=>'実が大きくなった。でも、さわるとまだカチカチ…。',
+      choices:()=>[
+        {label:'もいで、25℃くらいの部屋に1〜2週間置く(追熟)',ef:{good:true,flag:'ripen',note:'もいでから部屋で追熟。指で押すとやわらかくなり、食べごろに'}},
+        {label:'木の上でやわらかくなるまで待つ',ef:{cap:1,flag:'rot',note:'アボカドは木の上では熟さない。待つうちに寒さで実が傷んでしまった'}},
+        {label:'もいで、すぐ冷蔵庫へ',ef:{cap:2,flag:'fridge',note:'冷やすと追熟が止まり、かたいままのものが多かった'}}]},
+  ],
+};
+
 const PLANTS = {
   asagao: ASAGAO,
   sakura: SAKURA,
   yuzu: YUZU,
+  avocado: AVOCADO,
   more:{name:'？？？',kind:'追加予定',icon:'more',open:false},
 };
 
@@ -830,6 +1086,7 @@ function drawIcon(cv,type){
   if(type=='asagao'){px(12,8,'#3f9b4a',1,10);drawPattern(px,7,9,LEAF_L,{l:'#3f9b4a',L:'#2e7d32'});drawPattern(px,13,12,LEAF_R,{l:'#3f9b4a',L:'#2e7d32'});drawPattern(px,10,3,FLOWER,{c:'#3b5bdb',w:'#fff'})}
   if(type=='sakura'){px(11,8,'#6d4c41',2,10);px(8,10,'#6d4c41',3,1);px(13,9,'#6d4c41',3,1);[[5,5],[10,2],[15,4],[7,9],[14,8],[11,6]].forEach(([x,y])=>drawPattern(px,x,y,['.p.','pwp','.p.'],{p:'#f7a8c8',w:'#fff'}))}
   if(type=='yuzu'){px(11,10,'#6d4c41',2,8);px(5,3,'#2e7d32',14,8);px(4,5,'#2e7d32',16,4);[[7,6],[13,5],[10,8]].forEach(([x,y])=>{px(x,y,'#f2c200',3,3);px(x+1,y,'#ffe066')})}
+  if(type=='avocado'){px(11,10,'#6b5a3a',2,8);px(6,3,'#2f7a2f',12,9);px(5,5,'#3f8f3a',14,5);[[8,8],[14,7]].forEach(([x,y])=>{px(x,y,'#3d5a1e',2,3);px(x,y,'#56782a')})}
   if(type=='more'){px(0,0,'#e8e0cc',24,24);drawPattern(px,8,5,['.xxx.','x...x','...x.','..x..','.....','..x..'],{x:'#8a7a66'})}
 }
 const WX_NAME={sun:'はれ',cloud:'くもり',rain:'雨',storm:'台風',snow:'雪'};
@@ -853,6 +1110,20 @@ function drawScene(cv,S){
   if(S.wx=='rain'||S.wx=='storm'){for(let i=0;i<30;i++)px(Math.random()*64,Math.random()*60,'#dfe9ff',1,3)}
   if(S.wx=='snow'){for(let i=0;i<26;i++)px(Math.random()*64,Math.random()*60,'#ffffff',1,1)}
   const cont=pl.container(S);let y0;
+  if(pl.indoor&&pl.indoor(S)&&cont!='g'){
+    // 室内:壁・窓(外の天気が見える)・床
+    px(0,0,'#efe3cc',64,72);for(let x=3;x<64;x+=8)px(x,0,'#e6d8bd',1,62);
+    px(8,8,'#8a6a4a',22,20);px(10,10,sky,18,16);px(18,10,'#8a6a4a',2,16);px(10,17,'#8a6a4a',18,2);
+    if(S.wx=='snow')for(let i=0;i<8;i++)px(10+Math.random()*18,10+Math.random()*16,'#ffffff');
+    px(0,62,'#b08a5a',64,10);px(0,62,'#8a6a42',64,1);
+    if(cont=='jar'){y0=62}
+    else{
+      const potW=POT_W[cont]||20;y0=56;
+      for(let j=0;j<11;j++){const w=potW-Math.floor(j/3);px(32-w/2,55+j,j<2?'#a84f2c':'#c8643b',w,1)}
+      px(32-potW/2+1,56,'#4a2f1a',potW-2,1);
+    }
+    pl.drawPlant(px,S,y0);return;
+  }
   if(cont=='g'){y0=60;px(0,60,'#7a5230',64,12);px(0,60,S.wx=='snow'?'#ffffff':'#5fae4a',64,1);for(let i=0;i<10;i++)px((i*7+3)%64,63+(i%3)*3,'#5f3d22',2,1)}
   else{
     px(0,66,'#d9c7a3',64,6);px(0,66,'#bfa982',64,1);
@@ -921,6 +1192,7 @@ function startGrow(){
   S={key:plantKey,p,r,tl,day:0,date:tl.start,wx:'sun',temp:normalMax(tl.start),q:r.q,notes:r.notes.slice(),
      fatal:r.fatal,noBloom:r.noBloom,noSprout:false,dead:false,log:[],said:{},flags:{},
      tier(){if(this.dead)return 0;if(this.noBloom||this.q<30)return 1;const t=this.q>=85?4:this.q>=60?3:2;return Math.min(t,this.r.cap)}};
+  if(pl.init)pl.init(S);
   scheduleEvents(pl,p,tl);
   $('log').innerHTML='';
   addLog(pl.startLog(S));
@@ -929,12 +1201,14 @@ function startGrow(){
 }
 function scheduleEvents(pl,p,tl){
   const minDay=pl.eventMinDay?pl.eventMinDay(p,tl):16;
-  const maxDay=Math.min(tl.endDay-5,S.fatal?S.fatal.day-1:1e9);
+  let maxDay=Math.min(tl.endDay-5,S.fatal?S.fatal.day-1:1e9);
+  if(S.fatal&&S.fatal.germ)maxDay=Math.min(maxDay,tl.germDay);   // 芽が出ない場合は、芽が出る前のイベントだけ
   const years=Math.ceil(tl.endDay/365)+1;
   const cands=[];
   pl.events.filter(e=>!e.reactive&&(!e.cond||e.cond(p,tl,S))).forEach(e=>{
     const opts=[];
-    for(let y=0;y<=years;y++){
+    if(e.dayRange){const [a,b]=e.dayRange(p,tl);const lo=Math.max(a,1),hi=Math.min(b,maxDay);if(hi>=lo)opts.push([lo,hi])}
+    else for(let y=0;y<=years;y++){
       if(e.yearOk&&!e.yearOk(y,p,tl))continue;
       const lo=Math.max(daysBetween(tl.start,DY(y,...e.from)),minDay);
       const hi=Math.min(daysBetween(tl.start,DY(y,...e.to)),maxDay);
@@ -1006,11 +1280,13 @@ function showEvent(ev){
 }
 function applyEffect(ef){
   if(ef.q)S.q+=ef.q;
-  if(ef.cap)S.r.cap=Math.min(S.r.cap,ef.cap);
+  if(ef.cap){S.r.cap=Math.min(S.r.cap,ef.cap);if(ef.note&&!ef.good){S.notes.push({t:'bad',text:ef.note,d:80});ef={...ef,note:null}}}
   if(ef.noBloom&&!S.noBloom){S.noBloom=ef.noBloom;S.notes.push({t:'bad',text:ef.noBloom,d:99})}
   if(ef.fatal){const day=S.day+2;if(!S.fatal||day<S.fatal.day)S.fatal={day,text:ef.fatal};S.notes.push({t:'bad',text:ef.fatal,d:100})}
   if(ef.note)S.notes.push({t:ef.good?'good':(ef.q>0?'good':ef.q<0?'bad':'info'),text:ef.note,d:-(ef.q||0)});
   if(ef.flag=='keptFirst')S.flags.keptFirst=true;
+  if(ef.flag=='ripen'||ef.flag=='fridge')S.flags.picked=ef.flag;
+  if(ef.flag=='rot')S.flags.rotten=true;
   if(ef.flag=='cold'){S.flags.coldY=yOf(S.date);S.flags.coldMd=mdOf(S.date)}
   if(ef.flag=='defol'){
     const y=yOf(S.date);S.flags.defol=y;S.flags.defolMd=mdOf(S.date);
@@ -1056,7 +1332,7 @@ function showResult(){
   let key='';
   if(S.dead)key=S.fatal.text;
   else if(S.noBloom)key=S.noBloom;
-  else if(tier<4){const w=S.notes.filter(n=>n.t=='bad').sort((a,b)=>(b.d||0)-(a.d||0))[0];if(w)key=(tier<=1?'いくつもの原因が重なって弱りすぎた。いちばん大きいのは:':'いちばんの原因:')+w.text}
+  else if(tier<4){const w=S.notes.filter(n=>n.t=='bad').sort((a,b)=>(b.d||0)-(a.d||0))[0];if(w)key=(tier<=1&&S.q<30?'いくつもの原因が重なって弱りすぎた。いちばん大きいのは:':'いちばんの原因:')+w.text}
   $('resKey').innerHTML=key?`<div class="key">${key}</div>`:'';
   const order={bad:0,good:1,info:2};
   const notes=S.notes.concat(pl.extraNotes?pl.extraNotes(S):[]);
