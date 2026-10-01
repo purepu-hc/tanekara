@@ -1107,8 +1107,7 @@ const TULIP = {
     {id:'place',label:'冬の置き場所',when:p=>p.pot&&p.pot!='g',opts:[['out','日当たりのよい屋外'],['shade','日かげの屋外'],['warm','暖かい部屋の中']]},
     {id:'soil',label:'土',opts:[['mix','新しい草花用の土'],['old','去年チューリップを植えた土'],['clay','庭のねば土']]},
     {id:'water',label:'水やり',opts:[['dry','土の表面が乾いたらたっぷり(冬も)'],['none','冬は寒いので水やりしない'],['daily','毎日たっぷり']]},
-    {id:'fert',label:'肥料',opts:[['little','植えるときに少し＋葉が出たら液肥'],['none','なし'],['lots','たっぷり']]},
-    {id:'after',label:'花が咲いたあと',opts:[['pick','花だけ摘み、葉は黄色くなるまで残す'],['leave','そのままにしておく'],['cut','花も葉も全部切る']]},
+    {id:'fert',label:'元肥(植えるときの肥料)',opts:[['little','ゆっくり効く肥料を少し'],['none','なし'],['lots','たっぷり']]},
   ],
   evaluate(p){
     const r=newEval(),t=tulipDates(p),m=+p.month,pot=p.pot!='g';
@@ -1136,16 +1135,13 @@ const TULIP = {
     if(p.water=='dry') r.good('表面が乾いたらたっぷり。冬も水やりを忘れなかった');
     else if(p.water=='none'){ if(pot) r.nob('冬に水やりをやめて土がカラカラになり、根が伸びず、つぼみが育たなかった'); else r.bad(10,'冬に晴れの日が続き、少し乾いた'); }
     else { if(p.soil=='clay') r.kill(90,'水はけの悪い土に毎日水をやり、球根がくさった'); else r.bad(20,'水のやりすぎで、球根がくさりかけた'); }
-    if(p.fert=='little') r.good('元肥を少し、葉が出たら液肥。花のあと球根が太った');
-    else if(p.fert=='none'){r.info('花は球根にたくわえた栄養で咲く。でも肥料なしでは、新しい球根が太らなかった');r.capTo(3)}
+    if(p.fert=='little') r.good('元肥を少し入れ、根がしっかり張った');
+    else if(p.fert=='none') r.info('花は球根にたくわえた栄養で咲くので、元肥なしでも花は咲いた');
     else r.bad(20,'肥料が多すぎて、球根がくさりかけた');
-    if(p.after=='pick') r.good('花だけ摘み、葉は黄色くなるまで残して、新しい球根に栄養をためた');
-    else if(p.after=='leave'){r.bad(5,'花をそのままにしたので種づくりに栄養を使い、球根が太らなかった');r.capTo(3)}
-    else {r.bad(10,'花のあとすぐ葉も切ってしまい、球根が太れなかった');r.capTo(3)}
     return r;
   },
   timeline(p){return tulipDates(p)},
-  eventCount:()=>3,
+  eventCount:()=>2,
   eventMinDay:()=>10,
   step(S){const m=S.date.getMonth()+1;if(S.day<S.tl.germDay-10)return 7;if(m>=3&&m<=4)return 2;return 3},
   startLog(S){const st=S.tl.start;return `${st.getMonth()+1}月${st.getDate()}日、チューリップの球根を植えた。`},
@@ -1176,17 +1172,35 @@ const TULIP = {
       const n=tier>=4?2:1;xs.slice(0,3).forEach((dx,i)=>{for(let k=0;k<n;k++)drawPattern(px,46+i*5+k*2,y0+6-k,['.b.','bbb','.b.'],{b:tier>=4?'#c9a26b':'#a88a5b'})});return}
     xs.forEach((dx,i)=>{
       const x=32+dx;
-      for(let k=0;k<L;k++){px(x-1-k/3,y0-1-k*0.9,lc,2,1);px(x+1+k/3,y0-1-k*0.9,lc2,2,1)}
-      if(stemH>0){
+      const F=S.flags;
+      if(!(F.leafCut&&d>=F.leafCutDay))for(let k=0;k<L;k++){px(x-1-k/3,y0-1-k*0.9,lc,2,1);px(x+1+k/3,y0-1-k*0.9,lc2,2,1)}
+      if(stemH>0&&!(F.leafCut&&d>=F.leafCutDay)){
         px(x,y0-stemH,'#4f8a5f',1,stemH);
         const top=y0-stemH-4,col=TULIP_COL[i%5];
-        if(d>=T.bloomDay&&d<T.bloomDay+20) drawPattern(px,x-2,top,['c.c.c','ccccc','ccccc','.ccc.'],{c:col});
+        const off=F.headOff&&F.headOff!='never'&&d>=F.headOffDay+(F.headOff=='late'?7:0);
+        const fade=d>=T.bloomDay+10;
+        if(d>=T.bloomDay&&d<T.bloomDay+20&&!off) drawPattern(px,x-2,top,fade?['c...c','c.c.c','.ccc.']:['c.c.c','ccccc','ccccc','.ccc.'],{c:col});
         else if(d>=T.bloomDay-8&&d<T.bloomDay) drawPattern(px,x-1,top+1,['.c.','ccc','ggg'],{c:d>=T.bloomDay-3?col:'#7fbf6f',g:'#4f8a5f'});
-        else if(d>=T.bloomDay+20&&p.after=='leave') drawPattern(px,x-1,top+1,['ggg','ggg'],{g:'#8fae5a'});
+        else if(d>=T.bloomDay+20&&F.headOff=='never') drawPattern(px,x-1,top+1,['ggg','ggg'],{g:'#8fae5a'});
       }
     });
   },
   events:[
+    {id:'deadhead',force:true,cond:(p,tl,S)=>!S.noBloom&&!(S.fatal&&S.fatal.germ),dayRange:(p,tl)=>[tl.bloomDay+9,tl.bloomDay+11],title:'花が終わりそう',text:()=>'花びらが大きく開ききって、少し色があせてきた。',
+      choices:()=>[
+        {label:'すぐに、花の首のところで摘み取る(葉と茎は残す)',ef:{good:true,set:{headOff:'now'},note:'花が終わりかけたらすぐ摘み、種づくりに栄養を使わせなかった'}},
+        {label:'花びらが全部散るまで待ってから摘む',ef:{q:-10,set:{headOff:'late'},note:'摘むのがおそく、そのあいだに種づくりへ栄養が回った'}},
+        {label:'そのままにしておく',ef:{cap:3,set:{headOff:'never'},note:'花をそのままにして種ができ、球根に栄養が回らなかった'}}]},
+    {id:'oreigoe',force:true,cond:(p,tl,S)=>!S.noBloom&&!(S.fatal&&S.fatal.germ),dayRange:(p,tl)=>[tl.bloomDay+13,tl.bloomDay+16],title:'お礼肥',text:()=>'花を咲かせて、球根はつかれている。来年のために、何かしてあげる？',
+      choices:()=>[
+        {label:'リン酸・カリの多い液肥を、葉が黄色くなるまで週1回(お礼肥)',ef:{good:true,q:5,note:'お礼肥で、葉が作った栄養が新しい球根にたまった'}},
+        {label:'チッソの多い肥料を、たっぷりあげる',ef:{q:-15,note:'チッソが多すぎて、球根がくさりかけた'}},
+        {label:'花は終わったので、もう何もしない',ef:{cap:3,note:'お礼肥がなく、新しい球根が太りきらなかった'}}]},
+    {id:'yellow',force:true,cond:(p,tl,S)=>!(S.fatal&&S.fatal.germ),from:[5,18],to:[5,24],title:'葉が黄色くなってきた',text:()=>'葉が黄色くなりはじめた。見た目がちょっとさみしい…。',
+      choices:()=>[
+        {label:'葉が自然に枯れるまで待ってから、球根を掘り上げる',ef:{good:true,note:'葉が枯れるまで待ち、最後まで球根に栄養を送った'}},
+        {label:'見た目が悪いので、葉を切る',ef:{cap:3,set:{leafCut:true},note:'まだ働いている葉を切り、球根が太りきらなかった'}},
+        {label:'今すぐ掘り上げる',ef:{cap:3,set:{leafCut:true},note:'葉が緑のうちに掘り上げ、球根が太りきらなかった'}}]},
     {id:'frost',from:[1,5],to:[2,10],weather:'sun',temp:6,cond:p=>p.pot=='g'||p.place!='warm',title:'霜柱',text:()=>'朝、土がもり上がって霜柱が立っている。球根の頭が見えてしまった！',
       choices:()=>[
         {label:'昼にとけてから、上から土をかぶせ直す',ef:{good:true,note:'霜柱で出てきた球根に、土をかぶせ直した'}},
@@ -1238,8 +1252,7 @@ const NARCISSUS = {
     {id:'place',label:'場所',opts:[['sun','日当たりのよい所'],['shade','建物のかげ'],['room','一年中、室内の窓ぎわ']]},
     {id:'pot',label:'植える所',opts:[['g','庭に直接'],['m','6号鉢に3球'],['crowd','鉢にぎっしり']]},
     {id:'water',label:'水やり',opts:[['dry','土の表面が乾いたらたっぷり'],['daily','毎日たっぷり'],['none','冬は水やりしない']]},
-    {id:'fert',label:'肥料',opts:[['little','植えるときに少し＋花のあとにお礼肥'],['none','なし'],['lots','たっぷり']]},
-    {id:'after',label:'花が終わったら',opts:[['keep','花がらだけ摘み、葉は黄色く枯れるまで残す'],['cut','見た目が悪いので、葉を短く切る'],['tie','葉を束ねてしばっておく'],['seed','何もしない(花がらもそのまま)']]},
+    {id:'fert',label:'元肥(植えるときの肥料)',opts:[['little','ゆっくり効く肥料を少し'],['none','なし'],['lots','たっぷり']]},
     {id:'summer',label:'夏、葉が枯れたら',when:p=>p.pot&&p.pot!='g',opts:[['rest','水やりをやめ、雨の当たらない日かげで休ませる'],['water','毎日水やりを続ける']]},
   ],
   evaluate(p){
@@ -1260,18 +1273,14 @@ const NARCISSUS = {
     if(p.water=='dry') r.good('乾いたらたっぷり。ちょうどよい水やり');
     else if(p.water=='daily') r.bad(20,'水のやりすぎで、球根がくさりかけた');
     else { if(pot) r.bad(20,'冬に土がカラカラに乾き、根が弱った'); else r.info('庭植えは雨だけでも育った'); }
-    if(p.fert=='little') r.good('植えるときに少し、花のあとにお礼肥。球根が太った');
-    else if(p.fert=='none'){r.bad(15,'肥料がなく、球根に栄養がたまらなかった');r.capTo(3)}
+    if(p.fert=='little') r.good('元肥を少し入れ、根がしっかり張った');
+    else if(p.fert=='none') r.info('1年目の花は、球根にたくわえた栄養で咲く');
     else r.bad(15,'肥料が多すぎて、球根がくさりやすくなった');
-    if(p.after=='keep') r.good('葉は黄色く枯れるまで残した。葉が、来年の花の栄養を作る');
-    else if(p.after=='cut') r.nob('花のあと葉を切ってしまい、来年の花の栄養が作れなかった');
-    else if(p.after=='tie'){r.bad(15,'葉を束ねてしばったので、光が当たらず栄養が作れなかった');r.capTo(2)}
-    else {r.bad(5,'花がらを残し、種づくりに栄養を使った');r.capTo(3)}
     if(pot){ if(p.summer=='rest') r.good('夏は水やりをやめて、球根を休ませた(休眠)'); else r.kill(t.summer,'休んでいる球根に夏も毎日水をやり、くさらせてしまった'); }
     return r;
   },
   timeline(p){return narDates(p)},
-  eventCount:()=>3,
+  eventCount:()=>2,
   eventMinDay:(p,tl)=>tl.germDay,
   step(S){const T=S.tl,d=S.day;if(d>=T.bloom2-20)return 1;if(d<T.germDay||(d>=T.dorm1&&d<T.sprout2))return 7;return 3},
   startLog(S){const st=S.tl.start;return `${st.getMonth()+1}月${st.getDate()}日、${S.tl.nihon?'日本水仙':'ラッパズイセン'}の球根を植えた。`},
@@ -1309,8 +1318,12 @@ const NARCISSUS = {
     const bloomD=y2?T.bloom2:T.bloom1, nf=this.flowers(S,y2);
     xs.forEach((dx,i)=>{
       const x=32+dx;
-      [-2,-1,1,2].forEach((o,k)=>{for(let j=0;j<L-(k%2)*2;j++)px(x+o*(j/(L+4))*2.5,y0-1-j,k%2?lc2:lc)});
+      const F=S.flags,cutNow=!y2&&F.leafCut&&d>=F.leafCutDay,tied=!y2&&F.leafTie&&d>=F.leafTieDay;
+      if(cutNow){[-1,1].forEach(o=>px(x+o,y0-2,lc2,1,2))}
+      else if(tied){[-1,0,1].forEach(o=>px(x+o,y0-L,lc,1,L));px(x-1,y0-L/2,'#c9a26b',3,1)}
+      else [-2,-1,1,2].forEach((o,k)=>{for(let j=0;j<L-(k%2)*2;j++)px(x+o*(j/(L+4))*2.5,y0-1-j,k%2?lc2:lc)});
       if(i>=nf)return;
+      if(!y2&&F.headOff&&F.headOff!='never'&&d>=F.headOffDay+(F.headOff=='late'?7:0))return;
       const extra=y2&&S.tier()>=4;
       if(d>=bloomD-14&&d<bloomD+30){
         const sh=Math.min(16,4+(d-(bloomD-14))/1.2);
@@ -1325,10 +1338,25 @@ const NARCISSUS = {
     });
   },
   events:[
-    {id:'nira',force:true,cond:(p,tl,S)=>!S.fatal,from:[3,1],to:[3,20],yearOk:y=>y==1,title:'ニラ…じゃない！',text:()=>'となりのおじいさんが「ニラがいっぱい生えてるね。少しもらってもいい？」と言っている。',
+    {id:'nira',force:true,cond:(p,tl,S)=>!(S.fatal&&S.fatal.germ),from:[3,1],to:[3,20],yearOk:y=>y==1,title:'ニラ…じゃない！',text:()=>'となりのおじいさんが「ニラがいっぱい生えてるね。少しもらってもいい？」と言っている。',
       choices:()=>[
         {label:'これはスイセン。毒があるから食べないで、と伝える(ニラのにおいがしない)',ef:{good:true,note:'スイセンはニラのにおいがしない。毒があることを伝えて、事故を防いだ'}},
         {label:'「どうぞ」と葉を刈ってあげる',ef:{noBloom:'葉を刈られて、来年の花の栄養が作れなかった',note:'スイセンを食べると、吐き気や下痢などの中毒になる。ニラとまちがえる事故が毎年おきている'}}]},
+    {id:'deadhead',force:true,cond:(p,tl,S)=>!S.r.noFirst&&!(S.fatal&&S.fatal.germ),dayRange:(p,tl)=>[tl.bloom1+16,tl.bloom1+18],title:'花が終わりそう',text:()=>'花がしおれて、うつむいてきた。',
+      choices:()=>[
+        {label:'すぐに、花の首のところで摘み取る(茎と葉は残す)',ef:{good:true,set:{headOff:'now'},note:'しおれた花をすぐ摘み、種づくりに栄養を使わせなかった'}},
+        {label:'すっかり枯れるまで待ってから摘む',ef:{q:-10,set:{headOff:'late'},note:'摘むのがおそく、そのあいだに種づくりへ栄養が回った'}},
+        {label:'そのままにしておく',ef:{cap:3,set:{headOff:'never'},note:'花がらを残して種づくりに栄養を使い、球根が太らなかった'}}]},
+    {id:'oreigoe',force:true,cond:(p,tl,S)=>!S.r.noFirst&&!(S.fatal&&S.fatal.germ),dayRange:(p,tl)=>[tl.bloom1+20,tl.bloom1+23],title:'お礼肥',text:()=>'花を咲かせて、球根はつかれている。来年のために、何かしてあげる？',
+      choices:()=>[
+        {label:'リン酸・カリの多い液肥を、葉が黄色くなるまで週1回(お礼肥)',ef:{good:true,q:5,note:'お礼肥で、葉が作った栄養が球根にたまった'}},
+        {label:'チッソの多い肥料を、たっぷりあげる',ef:{q:-15,note:'チッソが多すぎて、球根がくさりかけた'}},
+        {label:'花は終わったので、もう何もしない',ef:{cap:3,note:'お礼肥がなく、球根が太りきらず、2年目の花が少なかった'}}]},
+    {id:'leaves',force:true,cond:(p,tl,S)=>!(S.fatal&&S.fatal.germ),dayRange:(p,tl)=>[tl.yellow1,tl.yellow1+4],title:'葉がのびほうだい',text:()=>'花が終わったあとも、長い葉がだらんと広がっている。黄色くなりはじめた葉もある。',
+      choices:()=>[
+        {label:'葉は、黄色く枯れるまでそのまま残す',ef:{good:true,note:'葉は黄色く枯れるまで残した。葉が、来年の花の栄養を作る'}},
+        {label:'見た目が悪いので、葉を短く切る',ef:{noBloom:'まだ働いている葉を切ってしまい、来年の花の栄養が作れなかった',set:{leafCut:true}}},
+        {label:'葉を束ねて、ひもでしばる',ef:{cap:2,set:{leafTie:true},note:'しばった葉は光が当たらず、栄養を作れなかった'}}]},
     {id:'dormant',from:[7,1],to:[7,31],yearOk:y=>y==1,cond:p=>p.pot!='g',title:'枯れちゃった？',text:()=>'葉がすっかり枯れて、鉢には土しか見えない。',
       choices:()=>[
         {label:'夏は球根のお休み期間。そっとしておく',ef:{good:true,note:'夏は休眠中。球根をそっと休ませた'}},
@@ -1506,7 +1534,7 @@ function scheduleEvents(pl,p,tl){
   forced.concat(rest).forEach(c=>{
     if(S.events.length>=n)return;
     for(let t=0;t<8;t++){const [lo,hi]=c.opts[Math.floor(Math.random()*c.opts.length)];const day=Math.floor(rnd(lo,hi+1));
-      if(S.events.every(x=>Math.abs(x.day-day)>=8)){S.events.push({e:c.e,day});break}}
+      if(S.events.every(x=>Math.abs(x.day-day)>=(c.e.force&&x.e.force?2:8))){S.events.push({e:c.e,day});break}}
   });
   S.events.sort((a,b)=>a.day-b.day);
 }
@@ -1567,6 +1595,7 @@ function applyEffect(ef){
   if(ef.noBloom&&!S.noBloom){S.noBloom=ef.noBloom;S.notes.push({t:'bad',text:ef.noBloom,d:99})}
   if(ef.fatal){const day=S.day+2;if(!S.fatal||day<S.fatal.day)S.fatal={day,text:ef.fatal};S.notes.push({t:'bad',text:ef.fatal,d:100})}
   if(ef.note)S.notes.push({t:ef.good?'good':(ef.q>0?'good':ef.q<0?'bad':'info'),text:ef.note,d:-(ef.q||0)});
+  if(ef.set)Object.entries(ef.set).forEach(([k,v])=>{S.flags[k]=v;S.flags[k+'Day']=S.day});
   if(ef.flag=='keptFirst')S.flags.keptFirst=true;
   if(ef.flag=='ripen'||ef.flag=='fridge')S.flags.picked=ef.flag;
   if(ef.flag=='rot')S.flags.rotten=true;
