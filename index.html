@@ -1069,11 +1069,292 @@ const AVOCADO = {
   ],
 };
 
+/* ============================================================
+   球根もの 共通(土の中の断面・株の位置)
+   ============================================================ */
+function bulbSpots(cont){return cont=='g'?[-14,0,14]:cont=='crowd'?[-8,-4,0,4,8]:[-5,0,5]}
+// 土の中をのぞいた断面に球根を描く(root:根の長さ / rot:くさった)
+function drawBulbsUnder(px,cont,y0,xs,root,rot){
+  const by=cont=='g'?y0+6:y0+5;
+  if(cont!='g'){const w=(POT_W[cont]||20)-4;px(32-w/2,y0+1,'#5d3d22',w,8)}
+  else px(4,y0+2,'#5d3d22',56,9);
+  xs.forEach(dx=>{
+    const x=32+dx;
+    for(let r=0;r<root;r++){px(x-1,by+2+r,'#efe6d0');if(r>1)px(x+1,by+1+r,'#efe6d0')}
+    drawPattern(px,x-2,by-3,['..b..','.bbb.','bbbbb','bbbbb','.bdb.'],{b:rot?'#5a4030':'#c9a26b',d:rot?'#3a2820':'#8a6a3a'});
+  });
+}
+
+/* ============================================================
+   チューリップ
+   ============================================================ */
+function tulipDates(p){
+  const m=+p.month, y=m<=4?1:0, start=DY(y,m,15);
+  const germDay=m==4?20:daysBetween(start,DY(1,2,20));
+  const bloomDay=m==4?60:daysBetween(start,DY(1,4,8));
+  const endDay=m==4?95:daysBetween(start,DY(1,6,8));
+  return {start,germDay,bloomDay,endDay};
+}
+const TULIP_COL=['#e03131','#fcc419','#f783ac','#e03131','#fcc419'];
+const TULIP = {
+  name:'チューリップ', kind:'秋植え球根', icon:'tulip', open:true, multiYear:true, tickMs:80, level:'★☆☆ 約8か月',
+  desc:'秋に球根を植えて、春に咲く花。冬の寒さが、春に茎をのばす合図になる。',
+  params:[
+    {id:'month',label:'球根を植える月',opts:[[9,'9月'],[10,'10月'],[11,'11月'],[1,'1月'],[4,'4月']]},
+    {id:'dir',label:'球根の向き',opts:[['flat','とがった方を上、平らな面を外側に'],['up','とがった方を上(向きは気にしない)'],['down','とがった方を下']]},
+    {id:'depth',label:'土をかぶせる深さ',opts:[['3x','球根の高さの3倍くらい(約10cm)'],['top','頭が少し出るくらい'],['deep','30cm']]},
+    {id:'pot',label:'植える所',opts:[['g','花だんに15cm間隔'],['m','8号鉢に5球'],['crowd','8号鉢に20球ぎっしり']]},
+    {id:'place',label:'冬の置き場所',when:p=>p.pot&&p.pot!='g',opts:[['out','日当たりのよい屋外'],['shade','日かげの屋外'],['warm','暖かい部屋の中']]},
+    {id:'soil',label:'土',opts:[['mix','新しい草花用の土'],['old','去年チューリップを植えた土'],['clay','庭のねば土']]},
+    {id:'water',label:'水やり',opts:[['dry','土の表面が乾いたらたっぷり(冬も)'],['none','冬は寒いので水やりしない'],['daily','毎日たっぷり']]},
+    {id:'fert',label:'肥料',opts:[['little','植えるときに少し＋葉が出たら液肥'],['none','なし'],['lots','たっぷり']]},
+    {id:'after',label:'花が咲いたあと',opts:[['pick','花だけ摘み、葉は黄色くなるまで残す'],['leave','そのままにしておく'],['cut','花も葉も全部切る']]},
+  ],
+  evaluate(p){
+    const r=newEval(),t=tulipDates(p),m=+p.month,pot=p.pot!='g';
+    if(m==9) r.bad(15,'9月はまだ土が暖かく、球根がくさりかけた(関東は10〜11月が植えどき)');
+    else if(m==10||m==11) r.good(`${m}月に植えて、冬のあいだに根がしっかり張った`);
+    else if(m==1){r.bad(10,'1月植えは寒さに当たる期間が短く、茎がやや短かった');r.capTo(3)}
+    else r.nob('春に植えた球根は冬の寒さを経験しておらず、花が咲かなかった');
+    if(p.dir=='flat') r.good('平らな面を外側にしたので、大きな葉が外向きにきれいに広がった');
+    else if(p.dir=='up') r.info('とがった方を上に植えた');
+    else {r.bad(25,'逆さに植えたので、芽が回り道をして出てくるのがおくれた');r.capTo(2)}
+    if(p.depth=='3x') r.good('球根の高さの3倍くらいの深さで、根がしっかり張った');
+    else if(p.depth=='top'){r.bad(10,'浅植えで球根が乾き、茎が伸びにくかった');r.capTo(2)}
+    else r.kill(t.germDay+20,'30cmは深すぎて、芽が地上に出られなかった',true);
+    if(p.pot=='g') r.good('花だんに15cm間隔で、のびのび育った');
+    else if(p.pot=='m') r.good('8号鉢に5球。ちょうどよい間隔だった');
+    else {r.bad(15,'ぎっしり植えて、球根どうしが栄養を取り合った');r.capTo(3)}
+    if(pot){
+      if(p.place=='out') r.good('冬も外で寒さにしっかり当たり、春に茎をのばす準備ができた');
+      else if(p.place=='shade'){r.bad(20,'日かげで茎がひょろひょろ、花も小さかった');r.capTo(3)}
+      else {r.bad(30,'冬に暖かい部屋に入れ、寒さが足りず茎が伸びないまま、葉の間で低く咲いた');r.capTo(2)}
+    }else r.good('花だんで、冬の寒さにしっかり当たった');
+    if(p.soil=='mix') r.good('新しい土で、病気が出なかった');
+    else if(p.soil=='old') r.bad(20,'去年チューリップを植えた土をそのまま使い、球根が病気(球根腐敗病)にかかりかけた');
+    else r.bad(15,'ねば土は水はけが悪く、球根がくさりやすい');
+    if(p.water=='dry') r.good('表面が乾いたらたっぷり。冬も水やりを忘れなかった');
+    else if(p.water=='none'){ if(pot) r.nob('冬に水やりをやめて土がカラカラになり、根が伸びず、つぼみが育たなかった'); else r.bad(10,'冬に晴れの日が続き、少し乾いた'); }
+    else { if(p.soil=='clay') r.kill(90,'水はけの悪い土に毎日水をやり、球根がくさった'); else r.bad(20,'水のやりすぎで、球根がくさりかけた'); }
+    if(p.fert=='little') r.good('元肥を少し、葉が出たら液肥。花のあと球根が太った');
+    else if(p.fert=='none'){r.info('花は球根にたくわえた栄養で咲く。でも肥料なしでは、新しい球根が太らなかった');r.capTo(3)}
+    else r.bad(20,'肥料が多すぎて、球根がくさりかけた');
+    if(p.after=='pick') r.good('花だけ摘み、葉は黄色くなるまで残して、新しい球根に栄養をためた');
+    else if(p.after=='leave'){r.bad(5,'花をそのままにしたので種づくりに栄養を使い、球根が太らなかった');r.capTo(3)}
+    else {r.bad(10,'花のあとすぐ葉も切ってしまい、球根が太れなかった');r.capTo(3)}
+    return r;
+  },
+  timeline(p){return tulipDates(p)},
+  eventCount:()=>3,
+  eventMinDay:()=>10,
+  step(S){const m=S.date.getMonth()+1;if(S.day<S.tl.germDay-10)return 7;if(m>=3&&m<=4)return 2;return 3},
+  startLog(S){const st=S.tl.start;return `${st.getMonth()+1}月${st.getDate()}日、チューリップの球根を植えた。`},
+  container:S=>S.p.pot=='g'?'g':'m',
+  indoor(S){const md=mdOf(S.date);return S.p.pot!='g'&&S.p.place=='warm'&&(md>=1101||md<=301)},
+  milestones(S,say){
+    const T=S.tl,d=S.day,md=mdOf(S.date);
+    if(S.noSprout){ if(d>=T.germDay+10)say('nog','春になっても、芽が出てこない…'); return; }
+    if(d>=30&&d<T.germDay)say('root','土の中で、球根から白い根がのびている。');
+    if(d>=T.germDay)say('germ','土から、とがった芽が出てきた！');
+    if(d>=T.bloomDay-8)say('bud', S.noBloom?'葉は出たのに、つぼみが見えない…':'つぼみがふくらんできた。');
+    if(!S.noBloom&&d>=T.bloomDay)say('bloom', S.tier()==2?'咲いた！…でも、茎がとても短い。':'チューリップが咲いた！');
+    if(md>=520)say('yl','葉が黄色くなってきた。');
+    if(d>=T.endDay-3)say('dig','球根を掘り上げた。');
+  },
+  rank(t){return ['枯れてしまった…','花が咲かなかった','花が小さく、背も低かった','きれいに咲いた！','満開！球根も太って、来年へ'][t]},
+  drawPlant(px,S,y0){
+    const T=S.tl,d=S.day,md=mdOf(S.date),cont=this.container(S),p=S.p;
+    const xs=bulbSpots(p.pot);
+    const rot=S.dead;
+    if(S.noSprout||d<T.germDay||S.dead){drawBulbsUnder(px,cont,y0,xs,Math.min(4,Math.max(0,(d-20)/15)),rot);return}
+    const tier=S.tier();
+    const L=Math.min(9,2+(d-T.germDay)/3);
+    const lc=md>=601?'#a08a5a':md>=520?'#c9b458':'#5f9e6e', lc2=md>=520?'#b8a050':'#4f8a5f';
+    const stemH=S.noBloom?0:Math.round(tier<=2?5:16)*Math.min(1,Math.max(0,(d-(T.bloomDay-24))/18));
+    const dug=d>=T.endDay-3;
+    if(dug){ drawBulbsUnder(px,cont,y0,[],0,false);
+      const n=tier>=4?2:1;xs.slice(0,3).forEach((dx,i)=>{for(let k=0;k<n;k++)drawPattern(px,46+i*5+k*2,y0+6-k,['.b.','bbb','.b.'],{b:tier>=4?'#c9a26b':'#a88a5b'})});return}
+    xs.forEach((dx,i)=>{
+      const x=32+dx;
+      for(let k=0;k<L;k++){px(x-1-k/3,y0-1-k*0.9,lc,2,1);px(x+1+k/3,y0-1-k*0.9,lc2,2,1)}
+      if(stemH>0){
+        px(x,y0-stemH,'#4f8a5f',1,stemH);
+        const top=y0-stemH-4,col=TULIP_COL[i%5];
+        if(d>=T.bloomDay&&d<T.bloomDay+20) drawPattern(px,x-2,top,['c.c.c','ccccc','ccccc','.ccc.'],{c:col});
+        else if(d>=T.bloomDay-8&&d<T.bloomDay) drawPattern(px,x-1,top+1,['.c.','ccc','ggg'],{c:d>=T.bloomDay-3?col:'#7fbf6f',g:'#4f8a5f'});
+        else if(d>=T.bloomDay+20&&p.after=='leave') drawPattern(px,x-1,top+1,['ggg','ggg'],{g:'#8fae5a'});
+      }
+    });
+  },
+  events:[
+    {id:'frost',from:[1,5],to:[2,10],weather:'sun',temp:6,cond:p=>p.pot=='g'||p.place!='warm',title:'霜柱',text:()=>'朝、土がもり上がって霜柱が立っている。球根の頭が見えてしまった！',
+      choices:()=>[
+        {label:'昼にとけてから、上から土をかぶせ直す',ef:{good:true,note:'霜柱で出てきた球根に、土をかぶせ直した'}},
+        {label:'そのまま',ef:{q:-15,note:'球根が乾いて寒さで傷んだ'}}]},
+    {id:'dryspell',from:[1,10],to:[2,15],weather:'sun',temp:9,cond:p=>p.water!='none',title:'晴れの日つづき',text:()=>'冬の晴れの日が続き、土がカラカラに乾いている。',
+      choices:()=>[
+        {label:'暖かい日の午前中に、たっぷり水をやる',ef:{good:true,note:'冬の乾燥に気づき、午前中に水やりした'}},
+        {label:'冬は水がいらないはず。そのまま',ef:{q:-25,note:'冬に土が乾き、根が弱ってつぼみが小さくなった'}}]},
+    {id:'early',from:[2,22],to:[3,8],cond:(p,tl,S)=>p.pot!='g'&&p.place!='warm'&&!(S.fatal&&S.fatal.germ),title:'早く見たい！',text:()=>'芽が出てきた。早く咲かせたいから、暖かい部屋に入れてみる？',
+      choices:()=>[
+        {label:'外のまま、春を待つ',ef:{good:true,note:'あせらず外で春を待ち、茎がしっかり伸びた'}},
+        {label:'暖かい部屋に入れる',ef:{cap:2,note:'寒さが足りないうちに暖かくして、茎が伸びないまま咲いた'}}]},
+    {id:'aphid',from:[3,10],to:[4,10],title:'アブラムシ',text:()=>'つぼみや葉のうらに、小さな虫がびっしり。アブラムシだ。',
+      choices:()=>[
+        {label:'テープやブラシで取りのぞく',ef:{good:true,note:'アブラムシを取りのぞいた(アブラムシは花にまだら模様が出る病気を運ぶ)'}},
+        {label:'放っておく',ef:{q:-15,note:'アブラムシが病気を運び、花びらにまだら模様が出た'}}]},
+    {id:'mold',from:[4,1],to:[4,25],weather:'rain',cond:(p,tl,S)=>!S.noBloom,title:'灰色のカビ',text:()=>'雨が続き、花びらや葉に灰色のカビが…。「灰色かび病」だ。',
+      choices:()=>[
+        {label:'傷んだ花びらや葉を取り、雨の当たらない所へ',ef:{good:true,note:'灰色かび病の部分を取り、広がるのを防いだ'}},
+        {label:'放っておく',ef:{q:-15,note:'カビが広がり、葉も傷んだ'}}]},
+    {id:'vase',from:[4,10],to:[4,20],cond:(p,tl,S)=>!S.noBloom,title:'花びんにかざりたい',text:()=>'きれいに咲いたので、1本切って部屋にかざりたい。',
+      choices:()=>[
+        {label:'花の茎だけ切り、葉は残す',ef:{good:true,note:'花の茎だけ切り、葉を残して球根を太らせた'}},
+        {label:'根元から、葉ごと切る',ef:{cap:3,note:'葉ごと切ったので、その株の球根が太れなかった'}}]},
+  ],
+};
+
+/* ============================================================
+   スイセン(2年目も咲かせる)
+   ============================================================ */
+function narDates(p){
+  const m=+p.month, y=m<=3?1:0, start=DY(y,m,15), nihon=p.var=='nihon';
+  const bd=(yy)=>nihon?DY(yy,1,10):DY(yy,3,25);
+  const sp1=m==3?addDays(start,20):(nihon?DY(0,11,1):DY(1,2,1));
+  const germDay=Math.max(daysBetween(start,sp1),m==12?30:10);
+  return {start,germDay,nihon,
+    bloom1:daysBetween(start,bd(1)),bloom2:daysBetween(start,bd(2)),
+    yellow1:daysBetween(start,nihon?DY(1,5,10):DY(1,5,25)),dorm1:daysBetween(start,nihon?DY(1,6,1):DY(1,6,15)),
+    sprout2:daysBetween(start,nihon?DY(1,11,1):DY(2,2,1)),
+    endDay:daysBetween(start,bd(2))+12, summer:daysBetween(start,DY(1,8,1))};
+}
+const NARCISSUS = {
+  name:'スイセン', kind:'秋植え球根', icon:'narcissus', open:true, multiYear:true, tickMs:80, level:'★★☆ 約1年半',
+  desc:'1年目は球根の栄養で咲く。本当の勝負は「2年目も咲くか」。植えっぱなしで毎年咲かせよう。',
+  params:[
+    {id:'var',label:'品種',opts:[['nihon','日本水仙(冬に咲く。いい香り)'],['trumpet','ラッパズイセン(春に咲く。大きな黄色)']]},
+    {id:'month',label:'球根を植える月',opts:[[9,'9月'],[10,'10月'],[12,'12月'],[3,'3月']]},
+    {id:'depth',label:'土をかぶせる深さ',opts:[['2x','球根の高さの2倍くらい'],['shallow','頭が出るくらい'],['deep','30cm']]},
+    {id:'place',label:'場所',opts:[['sun','日当たりのよい所'],['shade','建物のかげ'],['room','一年中、室内の窓ぎわ']]},
+    {id:'pot',label:'植える所',opts:[['g','庭に直接'],['m','6号鉢に3球'],['crowd','鉢にぎっしり']]},
+    {id:'water',label:'水やり',opts:[['dry','土の表面が乾いたらたっぷり'],['daily','毎日たっぷり'],['none','冬は水やりしない']]},
+    {id:'fert',label:'肥料',opts:[['little','植えるときに少し＋花のあとにお礼肥'],['none','なし'],['lots','たっぷり']]},
+    {id:'after',label:'花が終わったら',opts:[['keep','花がらだけ摘み、葉は黄色く枯れるまで残す'],['cut','見た目が悪いので、葉を短く切る'],['tie','葉を束ねてしばっておく'],['seed','何もしない(花がらもそのまま)']]},
+    {id:'summer',label:'夏、葉が枯れたら',when:p=>p.pot&&p.pot!='g',opts:[['rest','水やりをやめ、雨の当たらない日かげで休ませる'],['water','毎日水やりを続ける']]},
+  ],
+  evaluate(p){
+    const r=newEval(),t=narDates(p),m=+p.month,pot=p.pot!='g';
+    r.info(t.nihon?'日本水仙は冬(12〜2月)に咲き、いい香りがする':'ラッパズイセンは春(3〜4月)に咲く、大きな黄色の水仙');
+    if(m==9||m==10) r.good(`${m}月に植え、冬までに根がしっかり張った`);
+    else if(m==12) r.bad(15,'植え付けがおそく、根が十分に張らなかった');
+    else {r.bad(20,'春に植えたので、1年目は花が咲かず根も弱かった');r.noFirst=true}
+    if(p.depth=='2x') r.good('球根の高さの2倍くらいの深さに植えた');
+    else if(p.depth=='shallow'){r.bad(15,'浅植えで球根が分かれて小さくなり、2年目は花がつきにくかった');r.capTo(2)}
+    else r.kill(t.germDay+30,'深すぎて、芽が地上に出られなかった',true);
+    if(p.place=='sun') r.good('日当たりがよく、葉でたっぷり栄養を作れた');
+    else if(p.place=='shade') r.nob('日かげで葉が栄養を作れず、2年目は花芽ができなかった(1年目は球根の栄養で咲いた)');
+    else {r.bad(20,'室内では日光が足りず、球根が太らなかった');r.capTo(2)}
+    if(p.pot=='g') r.good('庭に直接。植えっぱなしでも元気に育った');
+    else if(p.pot=='m') r.good('6号鉢に3球。ちょうどよい間隔');
+    else {r.bad(15,'ぎっしり植えたので、2年目は込み合って花が減った');r.capTo(2)}
+    if(p.water=='dry') r.good('乾いたらたっぷり。ちょうどよい水やり');
+    else if(p.water=='daily') r.bad(20,'水のやりすぎで、球根がくさりかけた');
+    else { if(pot) r.bad(20,'冬に土がカラカラに乾き、根が弱った'); else r.info('庭植えは雨だけでも育った'); }
+    if(p.fert=='little') r.good('植えるときに少し、花のあとにお礼肥。球根が太った');
+    else if(p.fert=='none'){r.bad(15,'肥料がなく、球根に栄養がたまらなかった');r.capTo(3)}
+    else r.bad(15,'肥料が多すぎて、球根がくさりやすくなった');
+    if(p.after=='keep') r.good('葉は黄色く枯れるまで残した。葉が、来年の花の栄養を作る');
+    else if(p.after=='cut') r.nob('花のあと葉を切ってしまい、来年の花の栄養が作れなかった');
+    else if(p.after=='tie'){r.bad(15,'葉を束ねてしばったので、光が当たらず栄養が作れなかった');r.capTo(2)}
+    else {r.bad(5,'花がらを残し、種づくりに栄養を使った');r.capTo(3)}
+    if(pot){ if(p.summer=='rest') r.good('夏は水やりをやめて、球根を休ませた(休眠)'); else r.kill(t.summer,'休んでいる球根に夏も毎日水をやり、くさらせてしまった'); }
+    return r;
+  },
+  timeline(p){return narDates(p)},
+  eventCount:()=>3,
+  eventMinDay:(p,tl)=>tl.germDay,
+  step(S){const T=S.tl,d=S.day;if(d>=T.bloom2-20)return 1;if(d<T.germDay||(d>=T.dorm1&&d<T.sprout2))return 7;return 3},
+  startLog(S){const st=S.tl.start;return `${st.getMonth()+1}月${st.getDate()}日、${S.tl.nihon?'日本水仙':'ラッパズイセン'}の球根を植えた。`},
+  container:S=>S.p.pot=='g'?'g':'m',
+  indoor(S){return S.p.place=='room'&&S.p.pot!='g'},
+  // その年の花の株数
+  flowers(S,year2){
+    if(S.dead)return 0;
+    const n=bulbSpots(S.p.pot).length;
+    if(!year2) return S.r.noFirst?0:n;
+    if(S.noBloom)return 0;
+    return [0,0,1,n,n][S.tier()];
+  },
+  milestones(S,say){
+    const T=S.tl,d=S.day;
+    if(S.noSprout){ if(d>=T.germDay+15)say('nog','芽が出てこない…'); return; }
+    if(d>=T.germDay)say('g1','細長い葉が出てきた。');
+    if(d>=T.bloom1-2)say('b1', this.flowers(S,false)?'1年目の花が咲いた！':'1年目は花が咲かなかった。');
+    if(d>=T.yellow1)say('y1','葉が黄色くなってきた。');
+    if(d>=T.dorm1)say('d1','葉が枯れて、球根は土の中でお休み(休眠)。');
+    if(d>=T.sprout2)say('g2','また葉が出てきた！2年目のスタート。');
+    if(d>=T.bloom2-8)say('bud2', this.flowers(S,true)?'2年目のつぼみが見えてきた…！':'2年目は、つぼみが見あたらない…');
+    if(d>=T.bloom2&&this.flowers(S,true))say('b2','2年目も咲いた！');
+  },
+  rank(t){return ['枯れてしまった…','2年目は花が咲かなかった','2年目は花が少しだけ','2年目もきれいに咲いた！','2年目は花が増えて、満開！'][t]},
+  extraNotes(){return [{t:'info',text:'スイセンは花・葉・球根のすべてに毒がある。葉がニラに、球根がタマネギに似ているので注意'}]},
+  drawPlant(px,S,y0){
+    const T=S.tl,d=S.day,p=S.p,cont=this.container(S),xs=bulbSpots(p.pot);
+    const leafy=(d>=T.germDay&&d<T.dorm1)||d>=T.sprout2;
+    if(S.dead||S.noSprout||!leafy){drawBulbsUnder(px,cont,y0,xs,d>20?4:0,S.dead);return}
+    const y2=d>=T.sprout2, base=y2?T.sprout2:T.germDay;
+    const L=Math.min(13,2+(d-base)/4);
+    const yellow=!y2&&d>=T.yellow1;
+    const lc=yellow?'#c9b458':'#5a9a8a', lc2=yellow?'#b8a050':'#4a8a7a';
+    const bloomD=y2?T.bloom2:T.bloom1, nf=this.flowers(S,y2);
+    xs.forEach((dx,i)=>{
+      const x=32+dx;
+      [-2,-1,1,2].forEach((o,k)=>{for(let j=0;j<L-(k%2)*2;j++)px(x+o*(j/(L+4))*2.5,y0-1-j,k%2?lc2:lc)});
+      if(i>=nf)return;
+      const extra=y2&&S.tier()>=4;
+      if(d>=bloomD-14&&d<bloomD+30){
+        const sh=Math.min(16,4+(d-(bloomD-14))/1.2);
+        px(x,y0-sh,'#4a8a7a',1,sh);
+        const top=y0-sh-3;
+        if(d<bloomD) drawPattern(px,x-1,top+1,['.g.','.g.'],{g:'#9fbf8a'});
+        else if(d<bloomD+25){
+          if(T.nihon){drawPattern(px,x-3,top,['w.w.w','wywyw','.w.w.'],{w:'#ffffff',y:'#fcc419'});if(extra)drawPattern(px,x+1,top-3,['w.w','wyw'],{w:'#ffffff',y:'#fcc419'})}
+          else {drawPattern(px,x-2,top,['y.y.y','yoooy','yoooy','.yyy.'],{y:'#ffe066',o:'#f59f00'});if(extra)drawPattern(px,x+2,top-4,['y.y','yoy'],{y:'#ffe066',o:'#f59f00'})}
+        }
+      }
+    });
+  },
+  events:[
+    {id:'nira',force:true,cond:(p,tl,S)=>!S.fatal,from:[3,1],to:[3,20],yearOk:y=>y==1,title:'ニラ…じゃない！',text:()=>'となりのおじいさんが「ニラがいっぱい生えてるね。少しもらってもいい？」と言っている。',
+      choices:()=>[
+        {label:'これはスイセン。毒があるから食べないで、と伝える(ニラのにおいがしない)',ef:{good:true,note:'スイセンはニラのにおいがしない。毒があることを伝えて、事故を防いだ'}},
+        {label:'「どうぞ」と葉を刈ってあげる',ef:{noBloom:'葉を刈られて、来年の花の栄養が作れなかった',note:'スイセンを食べると、吐き気や下痢などの中毒になる。ニラとまちがえる事故が毎年おきている'}}]},
+    {id:'dormant',from:[7,1],to:[7,31],yearOk:y=>y==1,cond:p=>p.pot!='g',title:'枯れちゃった？',text:()=>'葉がすっかり枯れて、鉢には土しか見えない。',
+      choices:()=>[
+        {label:'夏は球根のお休み期間。そっとしておく',ef:{good:true,note:'夏は休眠中。球根をそっと休ませた'}},
+        {label:'枯れたと思って、鉢の土を捨てる',ef:{fatal:'休んでいた球根ごと、土を捨ててしまった'}}]},
+    {id:'snow',from:[1,10],to:[2,15],weather:'snow',temp:2,cond:p=>p.place!='room',title:'大雪',text:()=>'雪がつもって、スイセンの葉が雪にうもれた。',
+      choices:()=>[
+        {label:'葉や花の雪を、そっと払う',ef:{good:true,note:'雪をそっと払った(スイセンは寒さに強い)'}},
+        {label:'そのまま',ef:{note:'スイセンは寒さに強く、雪がとけたら元気だった'}}]},
+    {id:'wind',from:[2,20],to:[3,31],cond:p=>p.place!='room',title:'春一番',text:()=>'強い風で、花の茎が何本か倒れてしまった。',
+      choices:()=>[
+        {label:'倒れた花は切って部屋にかざり、葉は残す',ef:{good:true,note:'倒れた花は切って部屋にかざり、葉は残した'}},
+        {label:'葉も花もまとめて切ってしまう',ef:{cap:2,note:'葉まで切ってしまい、その株は来年の栄養が作れなかった'}}]},
+    {id:'aphid',from:[3,1],to:[4,20],title:'アブラムシ',text:()=>'葉やつぼみに、小さな虫がびっしり…。アブラムシだ。',
+      choices:()=>[
+        {label:'テープやブラシで取りのぞく',ef:{good:true,note:'アブラムシを取りのぞいた'}},
+        {label:'放っておく',ef:{q:-15,note:'アブラムシに汁を吸われ、葉が弱った'}}]},
+  ],
+};
+
 const PLANTS = {
   asagao: ASAGAO,
   sakura: SAKURA,
   yuzu: YUZU,
   avocado: AVOCADO,
+  tulip: TULIP,
+  narcissus: NARCISSUS,
   more:{name:'？？？',kind:'追加予定',icon:'more',open:false},
 };
 
@@ -1087,6 +1368,8 @@ function drawIcon(cv,type){
   if(type=='sakura'){px(11,8,'#6d4c41',2,10);px(8,10,'#6d4c41',3,1);px(13,9,'#6d4c41',3,1);[[5,5],[10,2],[15,4],[7,9],[14,8],[11,6]].forEach(([x,y])=>drawPattern(px,x,y,['.p.','pwp','.p.'],{p:'#f7a8c8',w:'#fff'}))}
   if(type=='yuzu'){px(11,10,'#6d4c41',2,8);px(5,3,'#2e7d32',14,8);px(4,5,'#2e7d32',16,4);[[7,6],[13,5],[10,8]].forEach(([x,y])=>{px(x,y,'#f2c200',3,3);px(x+1,y,'#ffe066')})}
   if(type=='avocado'){px(11,10,'#6b5a3a',2,8);px(6,3,'#2f7a2f',12,9);px(5,5,'#3f8f3a',14,5);[[8,8],[14,7]].forEach(([x,y])=>{px(x,y,'#3d5a1e',2,3);px(x,y,'#56782a')})}
+  if(type=='tulip'){[[6,'#e03131'],[12,'#fcc419'],[18,'#f783ac']].forEach(([x,c])=>{px(x,9,'#4f8a5f',1,9);px(x-2,14,'#5f9e6e',2,3);px(x+1,13,'#5f9e6e',2,3);drawPattern(px,x-2,5,['c.c.c','ccccc','ccccc','.ccc.'],{c})})}
+  if(type=='narcissus'){[[7,0],[16,1]].forEach(([x,k])=>{for(let j=0;j<9;j++){px(x-2,18-j,'#5a9a8a');px(x+2,18-j,'#4a8a7a')}px(x,7,'#4a8a7a',1,11);k?drawPattern(px,x-2,3,['y.y.y','yoooy','yoooy','.yyy.'],{y:'#ffe066',o:'#f59f00'}):drawPattern(px,x-2,4,['w.w.w','wywyw','.w.w.'],{w:'#ffffff',y:'#fcc419'})})}
   if(type=='more'){px(0,0,'#e8e0cc',24,24);drawPattern(px,8,5,['.xxx.','x...x','...x.','..x..','.....','..x..'],{x:'#8a7a66'})}
 }
 const WX_NAME={sun:'はれ',cloud:'くもり',rain:'雨',storm:'台風',snow:'雪'};
