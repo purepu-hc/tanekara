@@ -625,13 +625,21 @@ const SAKURA = {
    ユズ(接ぎ木苗から)
    ============================================================ */
 function yuzuDates(p){
+  if(p.mat!='graft'){
+    // 冬至にゆず湯に入ったあとの実から種を取る → 10年目の冬至に収穫をめざす
+    const start=DY(0,12,22);
+    const germ={paper:DY(1,2,5),wash:DY(1,3,20),slime:DY(1,4,25)}[p.prep]||DY(1,3,20);
+    const germDay=daysBetween(start,germ);
+    return {start,germDay,seed:true,flowerY1:9,finalY:10,endDay:daysBetween(start,DY(10,12,21)),
+      firstSummer:daysBetween(start,DY(1,8,1)),firstWinter:daysBetween(start,DY(2,1,25)),trainY:4};
+  }
   const m=+p.month||3, start=D(m,15);
   const fy=m<=3?0:1;                 // 植えてから最初に迎える春
   const flowerY1=fy+1, finalY=fy+2;  // 2回目の春にはじめて花、3回目の冬に収穫
   const endDay=daysBetween(start,DY(finalY,12,21));
   const firstSummer=daysBetween(start,m<=6?DY(0,8,1):DY(1,8,1));
   const firstWinter=daysBetween(start,m==1?DY(0,1,25):DY(1,1,25));
-  return {start,germDay:0,fy,flowerY1,finalY,endDay,firstSummer,firstWinter};
+  return {start,germDay:0,fy,flowerY1,finalY,endDay,firstSummer,firstWinter,seed:false};
 }
 // その年になっている実の数
 function yuzuFruits(S,y){
@@ -641,21 +649,33 @@ function yuzuFruits(S,y){
   return 0;
 }
 const YUZU = {
-  name:'ユズ', kind:'常緑低木・果樹', icon:'yuzu', open:true, multiYear:true, tickMs:70, level:'★★★ 約3年',
-  desc:'冬至のゆず湯でおなじみの果物。寒さに強いミカンの仲間。種からだと実がなるまで10年以上かかるので、接ぎ木苗から育てる。',
+  name:'ユズ', kind:'常緑低木・果樹', icon:'yuzu', open:true, multiYear:true, tickMs:70, level:'★★★ 3〜10年',
+  desc:'冬至のゆず湯に入ったあとの実から、種を取って育てる。「柚子の大馬鹿十八年」と言われるほど、実がなるまで長い道のり。',
   params:[
-    {id:'month',label:'苗木を植える月',opts:[[3,'3月(芽が動く前)'],[6,'6月'],[11,'11月'],[1,'1月']]},
+    {id:'mat',label:'何から育てる？',opts:[['seed','ゆず湯のあとの実から取った種(約10年)'],['graft','お店の接ぎ木苗(約3年)']]},
+    {id:'prep',label:'種のじゅんび',when:p=>p.mat=='seed',opts:[
+      ['wash','ぬるぬるを水で洗い流し、すぐ鉢にまいて外へ'],['paper','洗って、しめったキッチンペーパーで包み、暖かい部屋へ。芽が出たら鉢へ'],
+      ['dry','洗ってよく乾かし、春まで引き出しで保存'],['slime','ぬるぬるのまま、すぐ鉢にまく']]},
+    {id:'month',label:'苗木を植える月',when:p=>p.mat=='graft',opts:[[3,'3月(芽が動く前)'],[6,'6月'],[11,'11月'],[1,'1月']]},
     {id:'place',label:'場所',opts:[['south','日当たりがよく、北風の当たらない南側'],['north','北風が吹きつける北側'],['sea','強い風が吹く海の近く'],['shade','建物のかげ(半日かげ)']]},
     {id:'pot',label:'育てる入れ物',opts:[['g','庭に直接(地植え)'],['l','10号鉢(直径30cm)'],['s','3号鉢(直径9cm)']]},
     {id:'soil',label:'土',opts:[['mix','堆肥を混ぜた、水はけのよい土'],['lime','石灰をたくさん混ぜた土'],['clay','庭のねば土そのまま']]},
     {id:'fert',label:'肥料',opts:[['good','3月・6月・10月に適量'],['none','なし'],['late','夏の終わりに、まとめてたっぷり'],['root','植えるとき根に直接たっぷり']]},
     {id:'water',label:'水やり',opts:[['dry','土が乾いたらたっぷり(地植えは夏の日照りだけ)'],['daily','毎日たっぷり'],['rare','ほとんどやらない']]},
     {id:'prune',label:'剪定(枝を切る)',opts:[['march','3月、混み合った枝を全体の2割くらい切る'],['hard','毎年、枝を半分くらいばっさり切る'],['autumn','秋に、のびた枝先を切りそろえる'],['none','まったく切らない']]},
-    {id:'stake',label:'支柱',opts:[['yes','植えるときに支柱を立ててしばる'],['no','立てない']]},
+    {id:'stake',label:'支柱',when:p=>p.mat=='graft',opts:[['yes','植えるときに支柱を立ててしばる'],['no','立てない']]},
     {id:'winter',label:'冬の寒さ対策',opts:[['cover','寒い夜は不織布でおおう(鉢は軒下へ)'],['none','何もしない'],['heat','暖房のきいた部屋に入れる(地植えは掘り上げる)']]},
   ],
   evaluate(p){
-    const r=newEval(),t=yuzuDates(p),pot=p.pot!='g',m=+p.month;
+    const r=newEval(),t=yuzuDates(p),pot=p.pot!='g',m=+p.month,seed=t.seed,g0=t.germDay;
+    if(seed){
+      r.info('種から育てるユズは、実がなるまで10年以上。接ぎ木苗なら3年ほど');
+      const fail=daysBetween(t.start,DY(1,6,1));
+      if(p.prep=='wash') r.good('ぬるぬるを洗い流してすぐまき、冬をこえて春に芽が出た');
+      else if(p.prep=='paper') r.good('しめったペーパーで暖かく保ち、2月には根と芽が出た');
+      else if(p.prep=='dry') r.kill(fail,'ミカンの仲間の種は乾燥に弱い。乾かしたので芽が出なかった',true);
+      else r.bad(15,'ぬるぬるにカビが生え、いくつかの種がくさった。芽が出たのは遅かった');
+    }else{
     r.info('接ぎ木苗(2年生)からスタート。種からだと実がなるまで10年以上かかる');
     // 植え付け月
     if(m==3) r.good('3月、新しい芽が動く前に植え、根がすぐ土になじんだ');
@@ -663,14 +683,16 @@ const YUZU = {
     else if(m==11) r.bad(20,'根付く前に冬が来て、寒さで葉が落ちた');
     else { if(p.place=='north') r.kill(t.firstWinter,'真冬に植えたばかりの若い木が、北風と寒さで葉を落として枯れた(若木はマイナス7℃で枯れることがある)');
            else {r.bad(25,'1月の寒さで、植えたばかりの苗が葉を落とした');} }
+    }
     // 場所
     if(p.place=='south') r.good('日当たりがよく北風の当たらない場所で、花芽がたくさんできた');
     else if(p.place=='north'){r.bad(25,'北風と日かげで、枝が弱く花が少ない');r.capTo(2)}
     else if(p.place=='sea') r.bad(15,'強い風で葉や枝に傷がつき、病気(かいよう病)が入りやすい');
     else {r.bad(15,'半日かげでは、実の数が少なめ');r.capTo(3)}
     // 入れ物
-    if(p.pot=='g') r.good('地植えで、根を広く張れた');
+    if(p.pot=='g') seed?r.info('苗が15〜20cmになった2年目の春に、庭へ植えかえた'):r.good('地植えで、根を広く張れた');
     else if(p.pot=='l') r.good('10号鉢で根がほどよく育ち、実がつきやすかった');
+    else if(seed){r.bad(25,'小さな鉢のままで根がつまり、木が大きくなれなかった');r.capTo(2)}
     else r.kill(t.firstSummer,'2年生の苗木に3号鉢は小さすぎ、夏に水切れして枯れた');
     // 土
     if(p.soil=='mix') r.good('堆肥入りの水はけのよい土。ユズの好む弱酸性だった');
@@ -680,10 +702,10 @@ const YUZU = {
     if(p.fert=='good') r.good('3月・6月・10月の肥料で、実を育てる力がついた');
     else if(p.fert=='none') r.bad(15,'肥料がなく、葉の色がうすく実が少ない');
     else if(p.fert=='late') r.bad(15,'夏の終わりの肥料で秋に枝が伸び、その枝が冬の寒さで傷んだ');
-    else r.kill(30,'根に直接たくさんの肥料が触れ、「肥料焼け」で根がいたんで枯れた');
+    else r.kill(g0+30,'根に直接たくさんの肥料が触れ、「肥料焼け」で根がいたんで枯れた');
     // 水
     if(p.water=='dry') r.good('乾いたらたっぷり。地植えは夏の日照りのときだけ水やり');
-    else if(p.water=='daily'){ if(p.soil=='clay') r.kill(60,'水はけの悪い土に毎日水をやり、根ぐされで枯れた'); else r.bad(15,'水のやりすぎで根が弱った'); }
+    else if(p.water=='daily'){ if(p.soil=='clay') r.kill(g0+60,'水はけの悪い土に毎日水をやり、根ぐされで枯れた'); else r.bad(15,'水のやりすぎで根が弱った'); }
     else { if(pot) r.kill(t.firstSummer,'夏の暑さで鉢の土がカラカラになり、水切れで枯れた'); else r.bad(20,'植えて最初の夏、根付く前に水が足りなかった'); }
     // 剪定
     if(p.prune=='march') r.good('3月に混み合った枝を2割ほど切り、日当たりと風通しがよくなった');
@@ -691,8 +713,8 @@ const YUZU = {
     else if(p.prune=='autumn'){r.bad(20,'花がつく枝先を秋に切り落とし、花が少なくなった');r.capTo(2)}
     else r.bad(5,'枝が混み合って、中のほうの葉に日が当たらなかった');
     // 支柱
-    if(p.stake=='yes') r.good('支柱で苗木を固定し、根がゆれずに張れた');
-    else r.bad(10,'支柱がなく、風で苗木がゆれて根が張りにくかった');
+    if(!seed){ if(p.stake=='yes') r.good('支柱で苗木を固定し、根がゆれずに張れた');
+    else r.bad(10,'支柱がなく、風で苗木がゆれて根が張りにくかった'); }
     // 冬
     if(p.winter=='cover') r.good('寒い夜は不織布でおおい、若い木を寒さから守った');
     else if(p.winter=='none'){ if(p.place=='north'||m==11) r.bad(15,'冬の寒さで葉が落ち、春の芽が少なかった'); else r.info('ユズはミカンの仲間でいちばん寒さに強い。関東の南側なら冬越しできた'); }
@@ -701,19 +723,30 @@ const YUZU = {
     return r;
   },
   timeline(p){return yuzuDates(p)},
-  eventCount:()=>4,
-  eventMinDay:()=>20,
+  eventCount:p=>p.mat=='graft'?4:5,
+  eventMinDay:(p,tl)=>tl.germDay+20,
   step(S){
     const m=S.date.getMonth()+1,T=S.tl;
     if(S.day>=T.endDay-12)return 1;
+    if(T.seed&&yOf(S.date)<T.flowerY1){ if(S.day<T.germDay+40)return 5; return (m==12||m<=2)?30:14; }
     if(m==12||m<=2)return 7;
     if(m==5)return 3;
     return 5;
   },
-  startLog(S){const st=S.tl.start;return `${st.getMonth()+1}月${st.getDate()}日、ユズの接ぎ木苗(2年生)を植えた。`},
-  container:S=>S.p.pot,
+  startLog(S){const st=S.tl.start;return S.tl.seed?`${st.getMonth()+1}月${st.getDate()}日、冬至。ゆず湯に入ったあとの実から、種を取り出した。`:`${st.getMonth()+1}月${st.getDate()}日、ユズの接ぎ木苗(2年生)を植えた。`},
+  container(S){ if(S.tl.seed&&(S.p.pot=='g'||S.p.pot=='l')&&S.date<DY(2,3,20))return 'm'; return S.p.pot },
+  indoor(S){return S.tl.seed&&S.p.prep=='paper'&&S.day<S.tl.germDay+30},
   milestones(S,say){
     const T=S.tl,y=yOf(S.date),md=mdOf(S.date);
+    if(T.seed){
+      const d=S.day,p=S.p;
+      if(d>=2)say('prep',p.prep=='paper'?'種を洗って、しめったキッチンペーパーに包んだ。':p.prep=='dry'?'種を洗って、乾かして引き出しへ。':'種を鉢にまいた。');
+      if(S.noSprout){ if(md>=510&&y==1)say('nog','春になっても、芽が出てこない…'); return; }
+      if(d>=T.germDay)say('germ','芽が出た！ひとつの種から、芽が何本も出ている。');
+      if(p.pot=='g'&&y==2&&md>=320)say('plant','苗を庭に植えかえた。');
+      if(y>=2&&y<T.flowerY1&&md>=601&&md<=630)say('yr'+y,`${Math.floor(d/365)+1}年目。トゲがするどい。花はまだ。`);
+      if(d<T.germDay)return;
+    }
     if(md>=410&&md<=430)say('sp'+y,'新しい芽がのびてきた。');
     if(md>=1215||md<=110)say('ev','冬でも葉が落ちない。ユズは「常緑樹」。');
     if(y==T.flowerY1&&md>=510&&md<=531){ if(!S.noBloom&&S.q>=50)say('fl1','はじめて白い花が咲いた！いい香り。'); }
@@ -727,12 +760,24 @@ const YUZU = {
   rank(t){return ['枯れてしまった…','黄色いユズを収穫できなかった','実が少しだけなった','たくさん実った！','鈴なり！冬至にゆず湯ができた'][t]},
   extraNotes(S){
     const n=[];
+    if(S.tl.seed&&S.tier()>=2)n.push({t:'info',text:'ユズの種は、1つから何本も芽が出る「多胚性」。元気な芽は親と同じ性質なので、親と同じユズがなる。種から育った「実生のユズ」は香りが強いとも言われる'});
     if(S.tier()>=2)n.push({t:'info',text:'「桃栗三年柿八年、柚子の大馬鹿十八年」。種からだと18年とも言われるユズも、接ぎ木苗なら3年ほどで実がなる'});
     return n;
   },
   drawPlant(px,S,y0){
     const T=S.tl,y=yOf(S.date),md=mdOf(S.date),dead=S.dead;
-    let H=Math.round(Math.min(18+S.day/365*5,y0-10));
+    if(T.seed&&(S.noSprout||S.day<T.germDay)){
+      if(this.indoor(S)){px(27,y0-2,'#f4f1ea',10,3);px(30,y0-3,'#e8e0c8',4,1)}else px(30,y0+1,'#d8c9a0',2,1),px(34,y0+1,'#d8c9a0',2,1);
+      return;
+    }
+    let H=Math.round(Math.min(T.seed?3+(S.day-T.germDay)/365*3.2:18+S.day/365*5,y0-10));
+    if(T.seed&&this.container(S)=='s')H=Math.min(H,14);
+    if(T.seed&&H<10){
+      const c=dead?'#a1887f':'#2e7d32';
+      px(32,y0-H,dead?'#8d7a6a':'#5a7a3a',1,H);px(29,y0-H,c,3,2);px(33,y0-H+1,c,3,2);if(H>5){px(29,y0-H+4,c,3,1);px(33,y0-H+5,c,3,1)}
+      if(S.day<T.germDay+60){px(35,y0-2,'#5a7a3a',1,2);px(35,y0-3,c,2,1)}
+      return;
+    }
     const trunkTop=y0-Math.round(H*0.35);
     const bark=dead?'#8d7a6a':'#6d5a3a';
     px(31,trunkTop,bark,2,y0-trunkTop);
@@ -780,7 +825,7 @@ const YUZU = {
     {id:'typhoon',from:[8,15],to:[9,25],weather:'storm',title:'台風接近！',text:()=>'今夜、大きな台風がやってくる。',
       choices:(p,S)=>[
         {label:p.pot=='g'?'支柱とひもがゆるんでいないか確かめる':'鉢を倒して寝かせ、風の当たらない所へ',ef:{good:true,note:'台風の前にしっかり備えた'}},
-        {label:'何もしない',ef:(p.stake=='no'&&S.day<400)?{fatal:'根付く前の苗木が強風でゆさぶられ、根が切れて枯れた'}:{q:-15,note:'強い風でトゲと葉がこすれて傷つき、病気が入った'}}]},
+        {label:'何もしない',ef:(p.mat=='graft'&&p.stake=='no'&&S.day<400)?{fatal:'根付く前の苗木が強風でゆさぶられ、根が切れて枯れた'}:{q:-15,note:'強い風でトゲと葉がこすれて傷つき、病気が入った'}}]},
     {id:'leafminer',from:[7,10],to:[9,20],title:'葉に白い線',text:()=>'新しい葉に、白いくねくねの線が…。絵をかいたような「エカキムシ」(ミカンハモグリガ)だ。',
       choices:()=>[
         {label:'被害の葉を取り、夏にのびた新しい芽を整理する',ef:{good:true,note:'エカキムシの葉を取り、被害を広げなかった'}},
@@ -798,10 +843,20 @@ const YUZU = {
       choices:(p,S)=>[
         {label:p.pot=='g'?'木を不織布ですっぽりおおい、根元にワラをしく':'鉢を軒下に入れ、不織布でおおう',ef:{good:true,note:'寒波の夜を不織布でしのいだ'}},
         {label:'ユズは寒さに強いから、そのまま',ef:(p.place=='north'&&S.day<500)?{fatal:'北風の中の若い木がマイナス6℃の寒さで凍え、枯れてしまった'}:{q:-15,flag:'cold',note:'寒さで葉がたくさん落ちた'}}]},
-    {id:'thorn',from:[3,1],to:[3,25],yearOk:y=>y>=1,cond:p=>p.prune!='none',title:'剪定の日',text:()=>'3月、枝を切ろうとしたら…枝に長くするどいトゲがある！',
+    {id:'thorn',from:[3,1],to:[3,25],yearOk:(y,p,tl)=>tl.seed?y>=3:y>=1,cond:p=>p.prune!='none',title:'剪定の日',text:()=>'3月、枝を切ろうとしたら…枝に長くするどいトゲがある！',
       choices:()=>[
         {label:'厚手の手袋をして作業する',ef:{good:true,note:'手袋でトゲから手を守り、剪定できた'}},
         {label:'トゲを全部切り取ってから作業する',ef:{q:-10,note:'トゲを切った傷から病気が入りやすくなった'}}]},
+    {id:'twins',force:true,cond:(p,tl,S)=>tl.seed&&!(S.fatal&&S.fatal.germ),dayRange:(p,tl)=>[tl.germDay+12,tl.germDay+18],title:'芽が何本も！',text:()=>'ひとつの種から、芽が3本も出てきた！ 大きな芽が2本と、小さな芽が1本。',
+      choices:()=>[
+        {label:'いちばん元気な芽を1本だけ残す',ef:{good:true,note:'元気な芽を残した(多胚性のユズの元気な芽は、親と同じ性質)'}},
+        {label:'小さな芽をのこす',ef:{q:-15,note:'小さな芽は親とちがう性質で、育ちが弱かった'}},
+        {label:'3本ぜんぶ育てる',ef:{q:-10,note:'芽どうしが栄養を取り合い、ひょろひょろになった'}}]},
+    {id:'train',force:true,cond:(p,tl,S)=>tl.seed&&!(S.fatal&&S.fatal.germ),yearOk:(y,p,tl)=>y==tl.trainY,from:[3,1],to:[3,20],title:'まっすぐ上へ',text:()=>'枝がみんな、まっすぐ上に向かって伸びている。このままでは背ばかり高くなりそう。',
+      choices:()=>[
+        {label:'太い枝を4〜5本えらび、ひもで横向きに引っぱる(誘引)',ef:{good:true,q:5,note:'枝を横向きに誘引して勢いをおさえ、花がつきやすくなった'}},
+        {label:'上のほうを切って、背を低くする',ef:{q:-15,note:'切ったところから強い枝がまた伸び、花がつくのがおそくなった'}},
+        {label:'そのまま伸ばす',ef:{cap:2,note:'まっすぐ上に伸びる枝は勢いが強すぎて、花がつきにくかった'}}]},
     {id:'thin1',force:true,from:[6,20],to:[7,5],cond:(p,tl,S)=>!S.noBloom,yearOk:(y,p,tl)=>y==tl.flowerY1,title:'はじめての実',text:()=>'はじめて咲いた花のあとに、小さな緑の実が3つついた。',
       choices:()=>[
         {label:'木を大きくするため、今年の実は全部つむ',ef:{good:true,note:'1年目の実をつみ、木を育てることを優先した'}},
