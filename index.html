@@ -1431,6 +1431,166 @@ const NARCISSUS = {
   ],
 };
 
+/* ============================================================
+   バラ(四季咲き・接ぎ木苗)
+   ============================================================ */
+function roseDates(p){
+  const big=p.mat!='new', m=+(big?p.mbig:p.mnew)||(big?12:5);
+  const start=big&&m<=2?DY(1,m,10):DY(0,m,10);
+  const s8=start<DY(0,8,1)?DY(0,8,1):DY(1,8,1);
+  return {start,germDay:0,big,spring:daysBetween(start,DY(1,5,8)),autumn:daysBetween(start,DY(1,10,15)),
+    endDay:daysBetween(start,DY(1,10,31)),firstSummer:daysBetween(start,s8)};
+}
+const ROSE = {
+  name:'バラ', kind:'落葉低木・四季咲き', icon:'rose', open:true, multiYear:true, tickMs:80, level:'★★★ 約1年',
+  desc:'春と秋に咲く、四季咲きのバラ。剪定・花がら切り・病気や虫との戦い。手をかけたぶんだけ応えてくれる。',
+  params:[
+    {id:'mat',label:'苗のしゅるい',opts:[['big','大苗(畑で1年育った苗。冬に植える)'],['new','新苗(春に接ぎ木したばかりの若い苗)']]},
+    {id:'mbig',label:'植える月',when:p=>p.mat=='big',opts:[[12,'12月'],[2,'2月'],[6,'6月']]},
+    {id:'mnew',label:'植える月',when:p=>p.mat=='new',opts:[[5,'5月'],[8,'8月']]},
+    {id:'place',label:'場所',opts:[['sun','1日6時間以上、日が当たる所'],['half','日が当たるのは3時間くらい'],['shade','ほとんど日かげ'],['wall','日当たりはよいが、風の通らない壁ぎわ']]},
+    {id:'pot',label:'植える所',opts:[['g','庭に直接(地植え)'],['l','8号鉢(直径24cm)'],['s','3号鉢(直径9cm)']]},
+    {id:'soil',label:'土',opts:[['mix','堆肥・腐葉土入りの水はけのよい土'],['clay','庭のねば土そのまま'],['sand','砂だけ']]},
+    {id:'water',label:'水やり',opts:[['dry','土が乾いたらたっぷり(鉢は真夏に朝夕)'],['daily','いつでも毎日たっぷり'],['rare','ほとんどやらない']]},
+    {id:'fert',label:'肥料',opts:[['good','冬の寒肥・春の芽出し肥・花のあとのお礼肥・秋の追肥'],['none','なし'],['lots','チッソの多い肥料を、いつもたっぷり']]},
+  ],
+  evaluate(p){
+    const r=newEval(),t=roseDates(p),pot=p.pot!='g';
+    if(t.big){
+      r.info('大苗は、畑で1年育ててから冬に掘り上げた苗。植えた春から咲かせてよい');
+      const m=+p.mbig;
+      if(m==12) r.good('12月、バラが休んでいる時期に植え、春までに根がしっかり張った');
+      else if(m==2) r.bad(5,'2月植えで、春までに根を張る時間が少し短かった');
+      else r.kill(25,'根を切って掘り上げた大苗を暑い6月に植え、根が水を吸えずに枯れた');
+    }else{
+      r.info('新苗は、春に接ぎ木したばかりの若い苗。1年目は株を大きくするのが大事');
+      if(+p.mnew==5) r.good('5月、新苗の植えどきに植えた');
+      else r.bad(20,'真夏に植えかえ、根が暑さで傷んだ');
+    }
+    if(p.place=='sun') r.good('1日6時間以上の日なたで、花がたくさんついた');
+    else if(p.place=='half'){r.bad(15,'日当たり3時間くらいでは、花が少なめ');r.capTo(3)}
+    else if(p.place=='shade') r.nob('日かげでは花芽ができず、葉ばかりになった');
+    else r.bad(10,'壁ぎわで風が通らず、病気(黒星病・うどんこ病)が出やすかった');
+    if(p.pot=='g') r.good('地植えで、根が深く張った');
+    else if(p.pot=='l') r.good('8号鉢で、根がのびのび育った');
+    else {r.bad(25,'小さな鉢で根がつまり、株が大きくなれなかった');r.capTo(2)}
+    if(p.soil=='mix') r.good('堆肥・腐葉土入りの水はけのよい土。バラの好む土だった');
+    else if(p.soil=='clay') r.bad(15,'ねば土は水はけが悪く、根が弱った');
+    else r.bad(15,'砂だけでは、水も栄養も保てなかった');
+    if(p.water=='dry') r.good('乾いたらたっぷり。鉢は真夏に朝夕の水やり');
+    else if(p.water=='daily'){ if(p.soil=='clay') r.kill(90,'水はけの悪い土に毎日水をやり、根ぐされで枯れた'); else r.bad(15,'水のやりすぎで根が弱った'); }
+    else { if(pot) r.kill(t.firstSummer,'真夏に鉢の土がカラカラになり、水切れで枯れた'); else r.bad(15,'夏の水不足で、葉が落ちた'); }
+    if(p.fert=='good') r.good('季節ごとの肥料(寒肥・芽出し肥・お礼肥・秋の追肥)で、春も秋も咲く力がついた');
+    else if(p.fert=='none'){r.bad(15,'肥料がなく、花が小さく数も少なかった');r.capTo(3)}
+    else r.bad(15,'チッソが多すぎて枝がやわらかくなり、アブラムシやうどんこ病が増えた');
+    return r;
+  },
+  timeline(p){return roseDates(p)},
+  eventCount:p=>p.mat=='new'?4:3,
+  eventMinDay:()=>10,
+  step(S){const m=S.date.getMonth()+1;if(m==12||m<=1)return 7;if(m==5||m==10)return 2;if(m==4||m==6||m==9)return 3;return 4},
+  startLog(S){const st=S.tl.start;return `${st.getMonth()+1}月${st.getDate()}日、バラの${S.tl.big?'大苗':'新苗'}を植えた。`},
+  container:S=>S.p.pot,
+  milestones(S,say){
+    const T=S.tl,y=yOf(S.date),md=mdOf(S.date);
+    if(md>=1201||md<=131)say('win'+(md>=1201?y:y-1),'寒くなって葉が少なくなった。バラはお休み中。');
+    if(md>=310&&md<=331)say('sp'+y,'赤い新しい芽が、ぐんぐんのびてきた。');
+    if(y==1&&md>=425)say('bud',S.noBloom?'葉ばかりで、つぼみが見えない…':'つぼみがふくらんできた！');
+    if(y==1&&md>=505&&!S.noBloom)say('b1','バラが咲いた！春の一番花。');
+    if(y==1&&md>=1010&&!S.noBloom)say('b2',S.tier()>=3?'秋のバラが咲いた！':'秋は、花が少しだけ…');
+  },
+  rank(t){return ['枯れてしまった…','花が咲かなかった','春に少しだけ咲いた','春も秋もきれいに咲いた！','春も秋も満開！'][t]},
+  drawPlant(px,S,y0){
+    const T=S.tl,F=S.flags,y=yOf(S.date),md=mdOf(S.date),d=S.day,dead=S.dead;
+    const prog=(a,b)=>Math.max(0,Math.min(1,(d-a)/(b-a)));
+    let H=22;
+    if(!T.big&&y==0)H=8+10*prog(0,daysBetween(T.start,DY(0,10,1)));
+    else if(!T.big&&y==1)H=18;
+    if(S.p.pot=='s')H=Math.min(H,14);
+    let f=1;
+    if(F.wprune&&y==1&&d>=F.wpruneDay&&md<=505){const st={good:.5,hard:.25,none:1}[F.wprune];f=st+(1-st)*prog(F.wpruneDay,daysBetween(T.start,DY(1,5,5)))}
+    if(F.sprune&&y==1&&d>=F.spruneDay&&md<=1012){const st={good:.7,none:1,hard:.45}[F.sprune];f=st+(1-st)*prog(F.spruneDay,daysBetween(T.start,DY(1,10,12)))}
+    H=Math.max(4,Math.round(H*f));
+    const cane=dead?'#8d7a6a':'#4a6a2a';
+    const spread=[-1,-.5,0,.5,1],tips=[];
+    spread.forEach((s2,i)=>{const tx=32+s2*H*0.45,ty=y0-H*(i==2?1:0.82);line(px,32,y0,tx,ty,cane);tips.push([tx,ty])});
+    if(dead)return;
+    let dens=.72;
+    if(md>=1205||md<=228)dens=.22;
+    if(F.blackspot&&d>=F.blackspotDay&&md<=930)dens=.25;
+    const fresh=md>=310&&md<=415;
+    spread.forEach((s2,i)=>{const [tx,ty]=tips[i];const n=Math.max(3,Math.round(H/2.5));
+      for(let k=1;k<=n;k++){const t2=k/n,lx=32+(tx-32)*t2,ly=y0+(ty-y0)*t2;
+        [[-2,0],[1,-1],[-1,-2]].forEach(([ox,oy],j)=>{if(hash(lx+ox+i,ly+oy+j)<dens){const red=fresh&&hash(j*7+i,k)<.22;px(lx+ox,ly+oy,red?'#9a3a4a':(j%2?'#2f6b3a':'#3f8f4a'),2,2)}})}});
+    // 花
+    const tier=S.tier(),cnt=[0,0,2,4,5][tier];
+    const springOn=y==1&&md>=505&&md<=528, autOn=y==1&&md>=1012;
+    const babyOn=F.newbud=='bloom'&&y==0&&md>=605&&md<=620;
+    if(!S.noBloom&&(springOn||autOn||babyOn)){
+      const nf=babyOn?1:autOn?Math.max(1,cnt-(tier<4?1:0)):cnt;
+      const order=[2,0,4,1,3];
+      for(let k=0;k<nf;k++){const [tx,ty]=tips[order[k]];drawPattern(px,tx-2,ty-3,['.pp.','pPPp','pPPp','.pp.'],{p:'#f783ac',P:'#e64980'})}
+    }
+    if(F.deadhead=='hips'&&y==1&&md>=620&&md<=930)[0,2,4].slice(0,Math.max(1,cnt-2)).forEach(k=>{const [tx,ty]=tips[k];px(tx,ty-1,'#e8590c',2,2)});
+    if(y==1&&md>=425&&md<505&&!S.noBloom)for(let k=0;k<cnt;k++){const [tx,ty]=tips[[2,0,4,1,3][k]];px(tx,ty-2,'#e64980',1,2);px(tx,ty,'#3f8f4a')}
+  },
+  events:[
+    {id:'newbud',force:true,cond:(p,tl,S)=>p.mat=='new'&&!S.fatal,dayRange:()=>[18,28],title:'もうつぼみが！',text:()=>'植えたばかりの新苗に、もうつぼみがついた！',
+      choices:()=>[
+        {label:'株を大きくするため、8月末まではつぼみを摘む',ef:{good:true,set:{newbud:'pinch'},note:'1年目の夏までつぼみを摘み、株を大きく育てた'}},
+        {label:'せっかくだから咲かせる',ef:{q:-15,set:{newbud:'bloom'},note:'小さな株で花を咲かせ、体力を使ってしまった'}}]},
+    {id:'wprune',force:true,cond:(p,tl,S)=>!S.fatal||S.fatal.day>daysBetween(tl.start,DY(1,2,20)),yearOk:y=>y==1,from:[2,1],to:[2,20],title:'冬の剪定',text:()=>'2月。バラはお休み中。枝がのびほうだいになっている。',
+      choices:()=>[
+        {label:'外向きの芽の少し上で、高さの半分くらいに切る(細い枝・枯れ枝も取る)',ef:{good:true,set:{wprune:'good'},note:'冬剪定で古い枝を整理し、春に元気な枝がのびた'}},
+        {label:'根元から10cmくらいまで、全部ばっさり切る',ef:{q:-20,cap:3,set:{wprune:'hard'},note:'切りすぎて、春の花が少なかった'}},
+        {label:'切らない',ef:{cap:3,set:{wprune:'none'},note:'古い枝のままで、花が小さく数も少なかった'}}]},
+    {id:'deadhead',force:true,cond:(p,tl,S)=>!S.noBloom,yearOk:y=>y==1,from:[5,28],to:[6,5],title:'花が終わった',text:()=>'春の花が、しおれてきた。',
+      choices:()=>[
+        {label:'花の下の「5枚葉」の上で切る(花がら切り)',ef:{good:true,set:{deadhead:'good'},note:'5枚葉の上で花がらを切り、次の花芽が育った'}},
+        {label:'花のすぐ下だけ切る',ef:{q:-5,set:{deadhead:'short'},note:'花のすぐ下で切ったので、次の花がおそかった'}},
+        {label:'そのままにする',ef:{cap:3,set:{deadhead:'hips'},note:'実(ローズヒップ)を作るのに栄養を使い、次の花が減った'}}]},
+    {id:'sprune',force:true,cond:(p,tl,S)=>!S.fatal||S.fatal.day>daysBetween(tl.start,DY(1,9,5)),yearOk:y=>y==1,from:[8,25],to:[9,5],title:'夏の剪定',text:()=>'8月の終わり。秋の花のために、枝をどうする？',
+      choices:()=>[
+        {label:'枝全体の1/3くらいを、外向きの芽の上で切りそろえる',ef:{good:true,set:{sprune:'good'},note:'夏剪定で枝をそろえ、秋の花がいっせいに咲いた'}},
+        {label:'切らない',ef:{cap:3,set:{sprune:'none'},note:'夏剪定をしなかったので、秋の花がばらばらに小さく咲いた'}},
+        {label:'半分以上、ばっさり切る',ef:{q:-15,set:{sprune:'hard'},note:'切りすぎて、秋の花が咲く前に寒くなった'}}]},
+    {id:'blackspot',from:[6,10],to:[7,15],weather:'rain',title:'葉に黒いはん点',text:()=>'葉に黒いはん点が出て、黄色くなって落ちてきた。「黒星病」だ。雨の泥はねでうつるらしい。',
+      choices:p=>[
+        {label:'病気の葉を取り、株元をマルチングして泥はねを防ぐ。水は株元にやる',ef:{good:true,note:'黒星病の葉を取り、泥はねを防いで広がりを止めた'}},
+        {label:'放っておく',ef:{q:p.place=='wall'?-35:-25,set:{blackspot:true},note:'黒星病で葉がどんどん落ち、秋の花が少なくなった'}},
+        {label:'毎日、葉の上からシャワーで洗い流す',ef:{q:-20,set:{blackspot:true},note:'葉がぬれたことで、黒星病がもっと広がった'}}]},
+    {id:'powdery',from:[5,1],to:[6,5],title:'葉に白い粉',text:()=>'新しい葉やつぼみに、白い粉のようなカビ…「うどんこ病」だ。',
+      choices:()=>[
+        {label:'白くなった葉を取り、まわりの枝をすいて風通しをよくする',ef:{good:true,note:'うどんこ病の葉を取り、風通しをよくした'}},
+        {label:'肥料を追加して元気づける',ef:{q:-15,note:'チッソで葉がやわらかくなり、うどんこ病が広がった'}},
+        {label:'放っておく',ef:{q:-15,note:'うどんこ病が広がって、つぼみが開かなかった'}}]},
+    {id:'aphid',from:[3,25],to:[5,5],title:'アブラムシ',text:()=>'新しい芽やつぼみに、小さな虫がびっしり。アブラムシだ。',
+      choices:()=>[
+        {label:'テープで取ったり、水で流したりする',ef:{good:true,note:'アブラムシを取りのぞいた'}},
+        {label:'放っておく',ef:{q:-10,note:'アブラムシに汁を吸われ、つぼみが小さくなった'}}]},
+    {id:'zoumushi',from:[4,20],to:[5,10],cond:(p,tl,S)=>!S.noBloom,title:'つぼみがしおれた',text:()=>'つぼみが、首からぽきっとしおれている…。小さな黒い虫「バラゾウムシ」のしわざだ。',
+      choices:()=>[
+        {label:'しおれたつぼみを摘んで捨て、虫をつかまえる',ef:{good:true,note:'しおれたつぼみを捨て、バラゾウムシを退治した'}},
+        {label:'放っておく',ef:{q:-10,note:'バラゾウムシが増え、つぼみがたくさんだめになった'}}]},
+    {id:'hachi',from:[5,15],to:[9,20],title:'葉がなくなっていく',text:()=>'葉がふちから食べられている。緑のイモムシが、ずらっとならんで…チュウレンジハバチの幼虫だ。',
+      choices:()=>[
+        {label:'幼虫のついた葉ごと取って捨てる',ef:{good:true,note:'チュウレンジハバチの幼虫を葉ごと取りのぞいた'}},
+        {label:'放っておく',ef:{q:-15,note:'葉を食べつくされ、株が弱った'}}]},
+    {id:'teppou',from:[7,1],to:[9,15],title:'株元に木くず',text:()=>'株元に、木くずのような粉がたまっている。よく見ると、幹に穴があいている！',
+      choices:(p,S)=>[
+        {label:'穴に針金を入れて中の幼虫(テッポウムシ)を退治する',ef:{good:true,note:'幹の中のテッポウムシ(カミキリムシの幼虫)を退治した'}},
+        {label:'放っておく',ef:(p.mat=='new'&&S.day<300)?{fatal:'若い株の幹の中を食べられて、枯れてしまった'}:{q:-35,note:'幹の中を食べられて、枝が何本も枯れた'}}]},
+    {id:'daime',from:[4,15],to:[6,15],title:'根元から元気な芽',text:()=>'根元から、葉の形が少しちがう、とても元気な芽がのびてきた。',
+      choices:()=>[
+        {label:'接ぎ木の台木(ノイバラ)の芽なので、根元から切る',ef:{good:true,note:'台木から出た「台芽」を切り、上のバラに栄養を回した'}},
+        {label:'元気そうなので、のばしておく',ef:{q:-20,note:'台芽に栄養をとられ、上のバラが弱った'}}]},
+    {id:'typhoon',from:[8,20],to:[9,25],weather:'storm',title:'台風接近！',text:()=>'今夜、大きな台風がやってくる。',
+      choices:p=>[
+        {label:p.pot=='g'?'長い枝を支柱にしばり、株元に土をよせる':'鉢を家の中か、風の当たらない所へ',ef:{good:true,note:'台風の前にしっかり備えた'}},
+        {label:'何もしない',ef:{q:-15,note:'トゲで葉や枝がこすれて傷つき、枝も折れた'}}]},
+  ],
+};
+
 const PLANTS = {
   asagao: ASAGAO,
   sakura: SAKURA,
@@ -1438,6 +1598,7 @@ const PLANTS = {
   avocado: AVOCADO,
   tulip: TULIP,
   narcissus: NARCISSUS,
+  rose: ROSE,
   more:{name:'？？？',kind:'追加予定',icon:'more',open:false},
 };
 
@@ -1453,6 +1614,7 @@ function drawIcon(cv,type){
   if(type=='avocado'){px(11,10,'#6b5a3a',2,8);px(6,3,'#2f7a2f',12,9);px(5,5,'#3f8f3a',14,5);[[8,8],[14,7]].forEach(([x,y])=>{px(x,y,'#3d5a1e',2,3);px(x,y,'#56782a')})}
   if(type=='tulip'){[[6,'#e03131'],[12,'#fcc419'],[18,'#f783ac']].forEach(([x,c])=>{px(x,9,'#4f8a5f',1,9);px(x-2,14,'#5f9e6e',2,3);px(x+1,13,'#5f9e6e',2,3);drawPattern(px,x-2,5,['c.c.c','ccccc','ccccc','.ccc.'],{c})})}
   if(type=='narcissus'){[[7,0],[16,1]].forEach(([x,k])=>{for(let j=0;j<9;j++){px(x-2,18-j,'#5a9a8a');px(x+2,18-j,'#4a8a7a')}px(x,7,'#4a8a7a',1,11);k?drawPattern(px,x-2,3,['y.y.y','yoooy','yoooy','.yyy.'],{y:'#ffe066',o:'#f59f00'}):drawPattern(px,x-2,4,['w.w.w','wywyw','.w.w.'],{w:'#ffffff',y:'#fcc419'})})}
+  if(type=='rose'){[[-6,13],[-3,8],[0,5],[3,8],[6,13]].forEach(([dx,ty])=>line(px,12,18,12+dx,ty,'#4a6a2a'));[[6,12],[9,8],[13,5],[16,8]].forEach(([x,y])=>px(x,y,'#3f8f4a',2,2));[[5,9],[12,3],[16,6]].forEach(([x,y])=>drawPattern(px,x,y,['.pp.','pPPp','.pp.'],{p:'#f783ac',P:'#e64980'}))}
   if(type=='more'){px(0,0,'#e8e0cc',24,24);drawPattern(px,8,5,['.xxx.','x...x','...x.','..x..','.....','..x..'],{x:'#8a7a66'})}
 }
 const WX_NAME={sun:'はれ',cloud:'くもり',rain:'雨',storm:'台風',snow:'雪'};
