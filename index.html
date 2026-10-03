@@ -1822,6 +1822,237 @@ const ORCHID = {
   ],
 };
 
+/* ============================================================
+   モンステラ(観葉植物:切れ込みのある葉を出す)
+   ============================================================ */
+const MON_LEAF={
+  young:['.gg.gg.','ggggggg','ggggggg','.ggggg.','..ggg..','...g...'],
+  split:['.g..g.g','gg.gg.g','ggggggg','g.ggg.g','..ggg..','...g...'],
+  holes:['g.g.g.g','gg.g.gg','g.ggg.g','.g.g.g.','..ggg..','...g...'],
+};
+const MON_BIG={
+  young:['..ggg.ggg..','.ggggggggg.','ggggggggggg','ggggggggggg','.ggggggggg.','..ggggggg..','...ggggg...','....ggg....','.....g.....'],
+  split:['..g.g.g.g..','.gg.g.g.gg.','ggg.ggg.ggg','ggggggggggg','g.ggggggg.g','..ggggggg..','...ggggg...','....ggg....','.....g.....'],
+  holes:['..g.g.g.g..','.gg.g.g.gg.','g.g.ggg.g.g','gg.ggggg.gg','g.gg.g.gg.g','..ggggggg..','...g.g.g...','....ggg....','.....g.....'],
+};
+const MONSTERA = {
+  name:'モンステラ', kind:'観葉植物', icon:'monstera', open:true, multiYear:true, tickMs:80, level:'★★☆ 約1年半',
+  desc:'葉っぱを楽しむ観葉植物。小さな株は丸いハート形の葉だけ。明るい所で大きく育つと、葉に切れ込みや穴が入る。',
+  params:[
+    {id:'place',label:'置き場所',opts:[['bright','明るい窓辺(レースのカーテンごし)'],['sun','夏も直射日光が当たる窓ぎわ'],['dark','部屋の奥の暗い所']]},
+    {id:'pot',label:'鉢',opts:[['repot','5月に一回り大きな鉢へ植えかえる'],['same','買った鉢のまま'],['huge','いきなり、とても大きな鉢へ植えかえる']]},
+    {id:'stake',label:'支柱',opts:[['yes','ヘゴ棒の支柱を立て、茎をゆるくしばる'],['no','立てない']]},
+    {id:'water',label:'水やり',opts:[['dry','土が乾いたらたっぷり(冬は乾いて数日後)'],['daily','一年中、毎日たっぷり'],['rare','月に1回']]},
+    {id:'winter',label:'冬の置き場所',opts:[['room','暖かい部屋(10℃以上)'],['cold','暖房のない玄関(5℃以下になる)'],['heater','暖房の風が直接当たる所']]},
+    {id:'fert',label:'肥料',opts:[['good','春〜秋だけ、ときどき'],['none','なし'],['winter','冬も毎週']]},
+  ],
+  evaluate(p){
+    const r=newEval(),fw=daysBetween(D(4,15),DY(1,1,15));
+    r.info('モンステラは熱帯の森で、木にからみついて育つつる植物');
+    if(p.place=='bright') r.good('明るい窓辺で、葉が大きく育った。切れ込みは明るさで入る');
+    else if(p.place=='sun') r.bad(20,'夏の直射日光で、葉が茶色く焼けた(葉焼け)');
+    else {r.bad(15,'暗い所で、茎がひょろひょろ伸びた');r.capTo(2)}
+    if(p.pot=='repot') r.good('5月に一回り大きな鉢へ植えかえ、根がのびのび育った');
+    else if(p.pot=='same'){r.bad(15,'買った鉢のままで根がつまり、葉が大きくなれなかった');r.capTo(3)}
+    else r.bad(20,'大きすぎる鉢で土がなかなか乾かず、根が弱った');
+    if(p.stake=='yes') r.good('ヘゴ棒の支柱で上へ伸び、葉が大きくなった');
+    else {r.bad(10,'支柱がなく、茎が横にたおれて広がった');r.capTo(3)}
+    if(p.water=='dry') r.good('乾いたらたっぷり、冬はひかえめ。根が元気だった');
+    else if(p.water=='daily') r.kill(p.pot=='huge'?fw-60:fw,'冬も毎日水をやり、根ぐされで枯れた');
+    else r.bad(20,'夏も月1回では水が足りず、葉がしおれた');
+    if(p.winter=='room') r.good('冬は10℃以上の暖かい部屋で過ごした');
+    else if(p.winter=='cold') r.kill(fw,'冬の玄関は5℃以下。寒さで葉が黒くなって枯れた');
+    else r.bad(15,'暖房の風で葉が乾燥し、ハダニがついた');
+    if(p.fert=='good') r.good('育つ時期(春〜秋)だけ肥料をあげた');
+    else if(p.fert=='none'){r.bad(15,'肥料がなく、葉が小さめ');r.capTo(3)}
+    else r.bad(15,'休んでいる冬に肥料をあげ、根が傷んだ');
+    return r;
+  },
+  timeline(){const start=D(4,15);return {start,germDay:0,endDay:daysBetween(start,DY(1,9,30))}},
+  eventCount:()=>3,
+  eventMinDay:()=>10,
+  step(S){const m=S.date.getMonth()+1;return (m==12||m<=2)?7:4},
+  startLog:()=>'4月15日、モンステラの小さな鉢を買ってきた。葉はまだ丸いハート形。',
+  container:S=>S.p.pot=='same'?'s':S.p.pot=='huge'&&S.date>=D(5,15)?'p':S.date>=D(5,15)?'l':'s',
+  indoor:()=>true,
+  // 葉の枚数と、新しい葉の形
+  leaves(S){
+    const d=S.day,t=S.tier();
+    const max=S.dead?3:[3,3,6,8,10][t];
+    const n=Math.min(max,3+Math.floor(d/60));
+    const stage=d>=daysBetween(S.tl.start,DY(1,4,20))?(t>=4?'holes':t>=3?'split':'young'):(d>=daysBetween(S.tl.start,DY(0,9,1))&&t>=4?'split':'young');
+    return {n,stage};
+  },
+  milestones(S,say){
+    const y=yOf(S.date),md=mdOf(S.date),L=this.leaves(S);
+    if(S.date>=D(5,15)&&S.p.pot!='same')say('rp','一回り大きな鉢に植えかえた。');
+    if(y==0&&md>=701)say('ar','茎から、太い根が空中にのびてきた(気根)。');
+    if(L.stage=='split')say('sp','新しい葉に、切れ込みが入っている！');
+    if(L.stage=='holes')say('ho','新しい葉に、穴があいている！モンステラらしくなってきた。');
+    if(y==1&&md>=601&&L.stage=='young')say('yg','新しい葉も、まだ丸いハート形のまま…');
+  },
+  rank(t){return ['枯れてしまった…','元気がなく、葉が小さいまま','葉は増えたけど、切れ込みは入らなかった','切れ込みのある葉が出た！','穴あきの大きな葉がいっぱい！'][t]},
+  drawPlant(px,S,y0){
+    const dead=S.dead,L=this.leaves(S),p=S.p;
+    if(p.stake=='yes')px(33,y0-34,'#7a5a3a',2,34);
+    const pos=[[24,-10],[38,-12],[28,-20],[40,-24],[22,-28],[34,-32],[26,-38],[40,-40],[30,-46],[36,-50]];
+    const fall=p.stake=='no';
+    for(let i=0;i<L.n;i++){
+      let [x,dy]=pos[i];if(fall){dy=Math.round(dy*0.55);x=32+(x-32)*1.6}
+      const big=i>=3, lib=big?MON_BIG:MON_LEAF;
+      if(big)x-=2;
+      const yy=y0+dy-(big?2:0), shape=i>=L.n-3&&L.stage!='young'?lib[i>=L.n-1||L.stage=='split'?L.stage:'split']:lib.young;
+      line(px,32,y0,x+(big?5:3),yy+(big?8:5),dead?'#8d7a6a':'#4a7a3a');
+      const burn=p.place=='sun'&&i%3==0;
+      drawPattern(px,x,yy,shape,{g:dead?'#a1887f':burn?'#8a7a3a':(i%2?'#2f7a3a':'#3f8f4a')});
+      if(burn&&!dead)px(x,yy+1,'#6a4a2a',2,1);
+    }
+    if(!dead&&S.date>=D(7,1))line(px,30,y0-14,24,y0+1,'#8a6a4a');
+  },
+  events:[
+    {id:'wilt',force:true,cond:(p,tl,S)=>!S.fatal,yearOk:y=>y==1,from:[1,10],to:[2,5],title:'元気がない？',text:()=>'冬。葉が少し下を向いて、元気がないように見える。土はまだ少ししめっている。',
+      choices:()=>[
+        {label:'冬は水をあまり吸わないので、水やりをひかえる',ef:{good:true,note:'冬は水をひかえ、根ぐされを防いだ'}},
+        {label:'水が足りないと思い、たっぷりやる',ef:{q:-30,note:'冬に水をやりすぎて、根ぐされしかけた'}}]},
+    {id:'curl',force:true,cond:(p,tl,S)=>!S.fatal,yearOk:y=>y==1,from:[5,10],to:[5,31],title:'くるくる巻いた葉',text:()=>'茎のつけ根から、くるくる巻いた新しい葉が出てきた。',
+      choices:()=>[
+        {label:'さわらずに、自然に開くのを待つ',ef:{good:true,note:'巻いた新しい葉が、自然に大きく開いた'}},
+        {label:'早く見たいので、手で広げる',ef:{q:-10,note:'やわらかい新しい葉が破れてしまった'}}]},
+    {id:'drip',from:[6,1],to:[9,10],title:'葉の先から水',text:()=>'朝、葉の先から水のしずくがぽたぽた落ちている。',
+      choices:()=>[
+        {label:'根が元気に水を吸っているしるし。そのまま',ef:{good:true,note:'葉先の水は「溢液(いつえき)」。根が元気なしるしだった'}},
+        {label:'病気だと思って、その葉を切る',ef:{q:-10,note:'元気な葉を切ってしまった'}}]},
+    {id:'mite',from:[1,10],to:[2,28],title:'葉がかすれてきた',text:()=>'暖房で乾いた部屋。葉の色がかすれて、裏に小さな虫が…ハダニだ。',
+      choices:()=>[
+        {label:'霧吹きで葉の表と裏に水をかける(葉水)',ef:{good:true,note:'葉水でハダニを防いだ'}},
+        {label:'放っておく',ef:{q:-15,note:'ハダニが増えて、葉が白っぽくなった'}}]},
+    {id:'scale',from:[5,1],to:[9,30],title:'茎に白いつぶ',text:()=>'茎や葉のつけ根に、白い小さなつぶがびっしり。カイガラムシだ。',
+      choices:()=>[
+        {label:'歯ブラシや綿棒でこすり落とす',ef:{good:true,note:'カイガラムシをこすり落とした'}},
+        {label:'放っておく',ef:{q:-15,note:'カイガラムシが増えて、葉がべたべたになった'}}]},
+    {id:'airroot',from:[7,10],to:[9,10],title:'へんな根',text:()=>'茎から、太い茶色の根が空中にのびて、だらんと下がっている。',
+      choices:()=>[
+        {label:'支柱にからめるか、鉢の土へみちびく',ef:{good:true,note:'気根を支柱や土にみちびき、株がしっかり安定した'}},
+        {label:'じゃまなので、つけ根から切る',ef:{note:'気根は切っても大丈夫。見た目がすっきりした'}}]},
+    {id:'cutting',from:[6,1],to:[8,31],yearOk:y=>y==1,title:'ふやしてみる？',text:()=>'茎がのびて、節から気根も出ている。この茎を切って、もう1鉢ふやしてみる？',
+      choices:()=>[
+        {label:'気根のついた節で切り、水差しにする(水は毎日かえる)',ef:{good:true,note:'気根のついた茎を水差しにし、もう1鉢ふやせた'}},
+        {label:'葉だけ切って、水に入れる',ef:{note:'節(芽の出る所)がない葉だけでは、新しい株にならなかった'}}]},
+  ],
+};
+
+/* ============================================================
+   スプレーマム(花束の菊を挿し芽して、秋に咲かせる)
+   ============================================================ */
+const SPRAYMUM = {
+  name:'スプレーマム', kind:'キク(短日植物)', icon:'mum', open:true, tickMs:90, level:'★★☆ 約半年',
+  desc:'花束に入っていたスプレーマム(小さな花がたくさん咲く菊)の茎を、挿し芽にして育てる。アサガオと同じ「短日植物」。',
+  months:[5,6,7,8,9,10,11],
+  params:[
+    {id:'cut',label:'挿し芽のしかた',opts:[['tip','花やつぼみのない茎の先を10cm切り、下の葉を取って水をすわせ、赤玉土に挿す'],['flower','花がついたままの茎を、そのまま土に挿す'],['fert','肥料たっぷりの土に挿す'],['glass','水を入れたコップに挿したまま育てる']]},
+    {id:'place',label:'根が出たあとの置き場所',opts:[['sun','日当たりのよい屋外(夜は暗い)'],['shade','日かげの屋外'],['room','夜も明かりのつく部屋の中'],['street','街灯のそば']]},
+    {id:'pot',label:'植える所',opts:[['l','7号鉢に3本'],['s','小さなポットのまま'],['g','花だん']]},
+    {id:'pinch',label:'摘心(枝先を摘む)',opts:[['two','6月までに2回、枝先を摘む'],['none','摘まない'],['late','8月にも枝先を摘む']]},
+    {id:'water',label:'水やり',opts:[['dry','土が乾いたらたっぷり(夏は朝夕)'],['daily','いつも毎日たっぷり'],['rare','ほとんどやらない']]},
+    {id:'fert',label:'肥料',opts:[['good','根が出て植えかえたら、春〜初夏と秋に'],['none','なし'],['lots','チッソの多い肥料を、いつもたっぷり']]},
+  ],
+  evaluate(p){
+    const r=newEval(),pot=p.pot!='g',summer=daysBetween(D(5,10),D(8,1));
+    if(p.cut=='tip') r.good('花やつぼみのない茎の先を挿し芽に。2〜3週間で根が出た');
+    else if(p.cut=='flower') r.kill(28,'花をつけたままでは、根を出す力が残らなかった',true);
+    else if(p.cut=='fert') r.kill(20,'肥料たっぷりの土で切り口がいたみ、くさってしまった',true);
+    else r.bad(15,'水の中で出た根は弱く、土に植えるとしおれた');
+    if(p.place=='sun') r.good('日当たりのよい屋外で、夜は暗い。短日植物のキクにぴったり');
+    else if(p.place=='shade'){r.bad(15,'日かげで茎がひょろひょろ、花が少ない');r.capTo(3)}
+    else if(p.place=='room') r.nob('夜も部屋の明かりが当たり、夜の長さを感じられず花芽ができなかった(キクは短日植物)');
+    else r.nob('街灯で夜も明るく、花芽ができなかった。農家はこのしくみを使い、電灯で咲く時期をおくらせている(電照菊)');
+    if(p.pot=='l') r.good('7号鉢に3本。株がこんもり育った');
+    else if(p.pot=='g') r.good('花だんで、根がのびのび育った');
+    else {r.bad(20,'小さなポットのままで根がつまった');r.capTo(2)}
+    if(p.pinch=='two') r.good('6月までに2回摘心して枝が増え、花がたくさんついた');
+    else if(p.pinch=='none'){r.bad(10,'摘心しなかったので枝が少なく、ひょろりとのびた');r.capTo(3)}
+    else {r.bad(20,'8月にも摘んで、花をつける枝が育ちきらなかった');r.capTo(2)}
+    if(p.water=='dry') r.good('乾いたらたっぷり、夏は朝夕。ちょうどよい水やり');
+    else if(p.water=='daily') r.bad(15,'水のやりすぎで根が弱った');
+    else { if(pot) r.kill(summer,'真夏に鉢の土がカラカラになり、水切れで枯れた'); else r.bad(15,'夏の水不足で、下の葉が枯れた'); }
+    if(p.fert=='good') r.good('根が出てから、春〜初夏と秋に肥料をあげた');
+    else if(p.fert=='none'){r.bad(15,'肥料がなく、花が小さかった');r.capTo(3)}
+    else r.bad(15,'チッソが多すぎて茎がやわらかくなり、アブラムシが増えた');
+    return r;
+  },
+  timeline(){const start=D(5,10);return {start,germDay:18,potDay:30,budDay:daysBetween(start,D(9,25)),bloomDay:daysBetween(start,D(10,20)),endDay:daysBetween(start,D(11,10))}},
+  eventCount:()=>3,
+  eventMinDay:()=>32,
+  step(S){const m=S.date.getMonth()+1;return m>=10?2:3},
+  startLog:()=>'5月10日、花束に入っていたスプレーマムの茎を切って、挿し芽にした。',
+  container:S=>S.day<S.tl.potDay?'s':S.p.pot,
+  indoor(S){return S.p.place=='room'&&S.day>=S.tl.potDay},
+  milestones(S,say){
+    const T=S.tl,d=S.day,md=mdOf(S.date);
+    if(S.noSprout){ if(d>=T.germDay+4)say('nog','茎がしおれて、根が出ないまま…'); return; }
+    if(d>=T.germDay)say('rt','茎がしゃんとしてきた。根が出たみたい！');
+    if(d>=T.potDay)say('pt','鉢に植えかえた。');
+    if(md>=801)say('gr','葉がしげって、こんもりしてきた。');
+    if(d>=T.budDay)say('bd',S.noBloom?'秋なのに、つぼみが見えない…':'枝先に、小さなつぼみがたくさん！');
+    if(d>=T.bloomDay&&!S.noBloom)say('bl','スプレーマムが咲いた！');
+  },
+  rank(t){return ['枯れてしまった…','花が咲かなかった','花が少しだけ咲いた','たくさん咲いた！','花束みたいに満開！'][t]},
+  drawPlant(px,S,y0){
+    const T=S.tl,d=S.day,dead=S.dead,p=S.p;
+    const lc=dead?'#a1887f':'#3f7f3a',lc2=dead?'#8d7a6a':'#2f6b2f';
+    if(S.noSprout||d<T.potDay){
+      px(32,y0-9,dead||S.noSprout&&d>T.germDay?'#8d7a6a':'#4a7a3a',1,9);
+      const droop=S.noSprout&&d>8;
+      drawPattern(px,29,y0-9+(droop?3:0),['ll.','.ll'],{l:droop?'#9a9a5a':lc});drawPattern(px,33,y0-7+(droop?3:0),['.ll','ll.'],{l:droop?'#9a9a5a':lc2});
+      if(p.cut=='flower')drawPattern(px,31,y0-12,['.p.','pyp','.p.'],{p:droop?'#c0a0a8':'#f06595',y:'#fcc419'});
+      return;
+    }
+    const grow=Math.min(1,(d-T.potDay)/110);
+    const H=Math.round((p.pot=='s'?12:18)*(0.4+0.6*grow)*(p.pinch=='none'?1.2:1));
+    const nb=p.pinch=='two'?7:p.pinch=='late'?6:3;
+    const tips=[];
+    for(let i=0;i<nb;i++){const sx=nb==1?0:(i/(nb-1)-0.5)*2;const tx=32+sx*H*0.6,ty=y0-H*(1-Math.abs(sx)*0.25);line(px,32,y0,tx,ty,dead?'#8d7a6a':'#4a7a3a');tips.push([tx,ty])}
+    tips.forEach(([tx,ty],i)=>{const n=4;for(let k=1;k<=n;k++){const lx=32+(tx-32)*k/n,ly=y0+(ty-y0)*k/n;px(lx-2,ly,k%2?lc:lc2,2,2);px(lx+1,ly-1,k%2?lc2:lc,2,2)}});
+    if(dead||S.noBloom)return;
+    const per=[0,0,1,2,3][S.tier()];
+    const cols=[['#f06595','#fcc419'],['#ffd43b','#e8590c'],['#ffffff','#fcc419']];
+    tips.forEach(([tx,ty],i)=>{for(let k=0;k<per;k++){const fx=tx-3+k*3,fy=ty-2-(k%2)*2;
+      if(d>=T.bloomDay)drawPattern(px,fx-1,fy-1,['.p.','pyp','.p.'],{p:cols[i%3][0],y:cols[i%3][1]});
+      else if(d>=T.budDay)px(fx,fy,'#7fbf6f',1,1)}});
+  },
+  events:[
+    {id:'rooting',force:true,cond:(p,tl,S)=>!S.fatal,dayRange:()=>[6,10],title:'挿した茎がしおれてきた',text:()=>'挿し芽にした茎が、少ししおれてきた…。',
+      choices:()=>[
+        {label:'明るい日かげに置き、土を乾かさないようにする',ef:{good:true,note:'根が出るまで、明るい日かげで土を乾かさずに見守った'}},
+        {label:'日なたに出して、元気づける',ef:{q:-25,note:'根のないうちに日なたに出し、ひどくしおれた'}},
+        {label:'肥料をあげて、元気づける',ef:{fatal:'根のない茎に肥料をあげ、切り口がいたんで枯れた'}}]},
+    {id:'light',force:true,cond:(p,tl,S)=>p.place=='sun'&&!S.fatal,from:[8,25],to:[9,10],title:'新しい照明',text:()=>'家の前に、夜も明るい看板の照明がついた。スプレーマムのまわりも明るい…。',
+      choices:p=>[
+        {label:p.pot=='g'?'夕方から朝まで、段ボールで光をさえぎる':'夜は暗い場所へ鉢を移す',ef:{good:true,note:'夜の明かりをさけて、夜の長さを守った(キクは夜が長くなると花芽を作る)'}},
+        {label:'明るいほうが元気に育ちそう。そのまま',ef:{noBloom:'夜も明るいままで、秋になっても花芽ができなかった(電照菊と同じしくみ)'}}]},
+    {id:'stake',force:true,cond:(p,tl,S)=>!S.fatal&&!S.noBloom,from:[9,25],to:[10,5],title:'つぼみで重たい',text:()=>'つぼみがたくさんついて、枝がたおれそうになってきた。',
+      choices:()=>[
+        {label:'支柱を立て、ひもで株をまとめて支える',ef:{good:true,note:'支柱で支えて、枝がたおれずに咲いた'}},
+        {label:'そのまま',ef:{q:-10,note:'雨の日に枝がたおれ、花が地面について傷んだ'}}]},
+    {id:'aphid',from:[5,25],to:[7,10],title:'アブラムシ',text:()=>'新しい芽に、小さな虫がびっしり。アブラムシだ。',
+      choices:()=>[
+        {label:'テープで取ったり、水で流したりする',ef:{good:true,note:'アブラムシを取りのぞいた'}},
+        {label:'放っておく',ef:{q:-15,note:'アブラムシに汁を吸われ、芽がちぢれた'}}]},
+    {id:'rust',from:[6,10],to:[7,10],weather:'rain',title:'葉の裏に白いぽつぽつ',text:()=>'雨つづき。葉の裏に白いぽつぽつ…。キクの病気「白さび病」だ。',
+      choices:()=>[
+        {label:'病気の葉を取り、雨の当たらない所へ',ef:{good:true,note:'白さび病の葉を取り、雨をさけて広がりを止めた'}},
+        {label:'放っておく',ef:{q:-20,note:'白さび病が広がり、下の葉が枯れた'}}]},
+    {id:'mite',from:[7,20],to:[8,31],title:'葉がかすれてきた',text:()=>'暑くて乾いた日がつづき、葉の色がかすれてきた。ハダニだ。',
+      choices:()=>[
+        {label:'葉の裏に水をかける(葉水)',ef:{good:true,note:'葉水でハダニを追いはらった'}},
+        {label:'放っておく',ef:{q:-15,note:'ハダニが増えて、葉が白っぽくなった'}}]},
+    {id:'heat',from:[7,25],to:[8,25],weather:'sun',temp:35,title:'猛暑日',text:()=>'最高気温35℃。葉がぐったりしている。',
+      choices:p=>[
+        {label:'夏のあいだは、風通しのよい半日かげに移し、夕方に水をやる',ef:{good:true,note:'真夏は半日かげで、暑さをしのいだ'}},
+        {label:'そのまま',ef:p.pot=='s'?{fatal:'小さなポットが真夏の暑さで水切れし、枯れてしまった'}:{q:-15,note:'暑さで下の葉が枯れた'}}]},
+  ],
+};
+
 const PLANTS = {
   asagao: ASAGAO,
   sakura: SAKURA,
@@ -1832,6 +2063,8 @@ const PLANTS = {
   rose: ROSE,
   hydrangea: HYDRANGEA,
   orchid: ORCHID,
+  monstera: MONSTERA,
+  spraymum: SPRAYMUM,
   more:{name:'？？？',kind:'追加予定',icon:'more',open:false},
 };
 
@@ -1850,6 +2083,8 @@ function drawIcon(cv,type){
   if(type=='rose'){[[-6,13],[-3,8],[0,5],[3,8],[6,13]].forEach(([dx,ty])=>line(px,12,18,12+dx,ty,'#4a6a2a'));[[6,12],[9,8],[13,5],[16,8]].forEach(([x,y])=>px(x,y,'#3f8f4a',2,2));[[5,9],[12,3],[16,6]].forEach(([x,y])=>drawPattern(px,x,y,['.pp.','pPPp','.pp.'],{p:'#f783ac',P:'#e64980'}))}
   if(type=='hydrangea'){[[-5,12],[0,8],[5,12]].forEach(([dx,ty])=>line(px,12,18,12+dx,ty,'#7a6a4a'));px(4,13,'#4a9a4a',4,3);px(15,14,'#2f7a3a',4,3);[[4,6,'#5c7cfa','#91a7ff'],[12,3,'#9775fa','#b197fc'],[16,7,'#f783ac','#fcc2d7']].forEach(([x,y,a,b])=>drawPattern(px,x-2,y,['.aba.','ababa','babab','.bab.'],{a,b}))}
   if(type=='orchid'){px(0,0,'#efe3cc',24,24);px(0,19,'#b08a5a',24,5);px(8,16,'#c8643b',8,4);for(let k=0;k<6;k++){px(12-k,15+k*0.3,'#3f7f3a',1,2);px(12+k,14+k*0.3,'#2f6b2f',1,2)}for(let k=0;k<12;k++)px(13+Math.max(0,k-6)*0.8,14-k+Math.max(0,k-6)*0.4,'#5a7a3a');[[17,3],[15,6],[18,8]].forEach(([x,y])=>drawPattern(px,x-2,y-1,['ww.ww','wwcww','.www.'],{w:'#ffffff',c:'#f06595'}))}
+  if(type=='monstera'){px(0,0,'#efe3cc',24,24);px(0,19,'#b08a5a',24,5);px(8,16,'#c8643b',8,4);line(px,12,16,6,9,'#4a7a3a');line(px,12,16,17,6,'#4a7a3a');drawPattern(px,2,5,['g.g.g.g','gg.g.gg','g.ggg.g','.g.g.g.','..ggg..'],{g:'#3f8f4a'});drawPattern(px,14,2,['.g..g.g','gg.gg.g','ggggggg','g.ggg.g','..ggg..'],{g:'#2f7a3a'})}
+  if(type=='mum'){[[-6,9],[-2,6],[2,5],[6,8]].forEach(([dx,ty])=>line(px,12,18,12+dx,ty,'#4a7a3a'));px(7,13,'#3f7f3a',3,2);px(14,12,'#2f6b2f',3,2);[[5,6,'#f06595'],[9,3,'#ffd43b'],[13,2,'#f06595'],[17,5,'#ffffff'],[11,7,'#ffd43b']].forEach(([x,y,c])=>drawPattern(px,x,y,['.p.','pyp','.p.'],{p:c,y:'#e8590c'}))}
   if(type=='more'){px(0,0,'#e8e0cc',24,24);drawPattern(px,8,5,['.xxx.','x...x','...x.','..x..','.....','..x..'],{x:'#8a7a66'})}
 }
 const WX_NAME={sun:'はれ',cloud:'くもり',rain:'雨',storm:'台風',snow:'雪'};
@@ -2025,7 +2260,8 @@ function tick(){
     setTimeout(showResult,1000);return}
   pl.milestones(S,say);
   render();
-  const ev=S.events.find(x=>x.day===d&&!x.done);
+  let ev=S.events.find(x=>x.day===d&&!x.done);
+  while(ev&&ev.e.cond&&!ev.e.cond(S.p,S.tl,S)){ev.done=true;ev=S.events.find(x=>x.day===d&&!x.done)}
   if(ev){ev.done=true;stop();setTimeout(()=>showEvent(ev),250);return}
   if(d>=T.endDay){stop();setTimeout(showResult,900)}
 }
