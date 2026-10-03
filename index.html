@@ -1591,6 +1591,237 @@ const ROSE = {
   ],
 };
 
+/* ============================================================
+   アジサイ(母の日の鉢 → 翌年、思った色に咲かせる)
+   ============================================================ */
+const HYD_COL={blue:['#5c7cfa','#91a7ff'],pink:['#f783ac','#fcc2d7'],purple:['#9775fa','#b197fc'],white:['#f8f9fa','#e9ecef']};
+const HYD_NAME={blue:'青い',pink:'ピンクの',purple:'むらさきの',white:'白い'};
+function hydColor(S){
+  if(S.p.goal=='white')return 'white';
+  const F=S.flags,sc=({acid:1,lime:-1,normal:0}[S.p.soil]||0)+(F.alum?2:0)-(F.lime?2:0);
+  return sc>0?'blue':sc<0?'pink':'purple';
+}
+const HYDRANGEA = {
+  name:'アジサイ', kind:'落葉低木', icon:'hydrangea', open:true, multiYear:true, tickMs:80, level:'★★☆ 約1年',
+  desc:'母の日にもらったアジサイの鉢。来年も咲かせたい。土しだいで、花の色が青にもピンクにも変わる。',
+  params:[
+    {id:'goal',label:'来年は何色にしたい？',opts:[['blue','青'],['pink','ピンク'],['white','白い品種なので白']]},
+    {id:'pot',label:'花のあと、どこで育てる？',opts:[['g','庭に植える'],['l','一回り大きな鉢に植えかえる'],['s','もらった鉢のまま']]},
+    {id:'soil',label:'土',opts:[['acid','鹿沼土やピートモスの酸性の土'],['lime','苦土石灰を混ぜた、アルカリ寄りの土'],['normal','市販の草花用の土']]},
+    {id:'place',label:'場所',opts:[['morning','午前中だけ日が当たり、午後は日かげ'],['west','強い西日が当たる所'],['shade','一日中日かげ'],['room','一年中、室内']]},
+    {id:'water',label:'水やり',opts:[['dry','土が乾いたらたっぷり(真夏は朝夕)'],['daily','毎日たっぷり'],['rare','ほとんどやらない']]},
+    {id:'fert',label:'肥料',opts:[['good','花のあと(6月)と9月にお礼肥、冬に寒肥'],['none','なし'],['lots','早く大きくしたいので毎週たっぷり']]},
+  ],
+  evaluate(p){
+    const r=newEval(),pot=p.pot!='g',firstSummer=daysBetween(D(5,10),D(8,1));
+    if(p.goal=='white') r.info('白いアジサイは、土の性質が変わっても色が変わらない');
+    if(p.pot=='g') r.good('花のあと庭に植え、根がのびのび育った');
+    else if(p.pot=='l') r.good('一回り大きな鉢に植えかえ、根がのびのび育った');
+    else {r.bad(20,'もらった小さな鉢のままで、夏にすぐ水切れした');r.capTo(3)}
+    if(p.soil=='acid') r.info('鹿沼土やピートモスの酸性の土。アルミニウムがとけ出しやすく、青くなりやすい');
+    else if(p.soil=='lime') r.info('苦土石灰でアルカリ寄りの土。アルミニウムがとけにくく、ピンクになりやすい');
+    else r.info('市販の草花用の土。色はどちらにもかたよりにくい');
+    if(p.place=='morning') r.good('午前中だけ日が当たり、午後は日かげ。アジサイにぴったりの場所');
+    else if(p.place=='west') r.bad(20,'強い西日で葉が焼け、水切れしやすかった');
+    else if(p.place=='shade'){r.bad(10,'一日中日かげでは、花が少なめ');r.capTo(3)}
+    else {r.nob('室内では冬の寒さに当たらず、花芽が育たなかった');r.bad(10,'室内では光が足りなかった')}
+    if(p.water=='dry') r.good('乾いたらたっぷり、真夏は朝夕。アジサイは水が大好き');
+    else if(p.water=='daily') r.info('毎日たっぷり。水が大好きなアジサイは元気だった');
+    else { if(pot) r.kill(firstSummer,'真夏に鉢の土がカラカラになり、水切れで枯れた'); else r.bad(20,'夏の水不足で、葉がしおれた'); }
+    if(p.fert=='good') r.good('花のあとと9月のお礼肥、冬の寒肥で、来年の花の力をたくわえた');
+    else if(p.fert=='none'){r.bad(15,'肥料がなく、花が小さかった');r.capTo(3)}
+    else r.bad(20,'肥料のやりすぎで根が傷んだ(肥料焼け)');
+    return r;
+  },
+  timeline(){const start=D(5,10);return {start,germDay:0,endDay:daysBetween(start,DY(1,6,25)),bloom2:daysBetween(start,DY(1,6,3))}},
+  finalize(S){
+    if(S.dead||S.noBloom||S.p.goal=='white')return;
+    const c=hydColor(S);
+    if(c!=S.p.goal){S.r.cap=Math.min(S.r.cap,3);S.notes.push({t:'bad',d:30,text:`${{blue:'青',pink:'ピンク'}[S.p.goal]}にしたかったのに、${HYD_NAME[c]}花が咲いた。青は酸性の土とアルミニウム、ピンクはアルカリ性の土で出やすい`})}
+    else S.notes.push({t:'good',text:`ねらいどおり、${HYD_NAME[c]}花が咲いた`});
+  },
+  eventCount:()=>2,
+  eventMinDay:()=>10,
+  step(S){const m=S.date.getMonth()+1;if(m==12||m<=2)return 7;if(m==5||m==6)return 2;return 4},
+  startLog:()=>'5月10日、母の日にアジサイの鉢をもらった。',
+  container:S=>S.p.pot,
+  indoor(S){return S.p.place=='room'},
+  milestones(S,say){
+    const y=yOf(S.date),md=mdOf(S.date);
+    if(y==0&&md>=1110)say('fall','葉が黄色くなって落ちてきた。アジサイは冬に葉を落とす。');
+    if(y==1&&md>=325)say('sp','枝先の芽から、新しい葉が出てきた。');
+    if(y==1&&md>=515)say('bud',S.noBloom?'葉は出たのに、つぼみが見えない…':'枝先に、小さなつぼみのかたまりが！');
+    if(y==1&&md>=603&&!S.noBloom)say('bl',`${HYD_NAME[hydColor(S)]}花が咲いた！`);
+  },
+  rank(t,S){const c=HYD_NAME[hydColor(S)];return ['枯れてしまった…','花が咲かなかった',`${c}花が少しだけ咲いた`,`${c}アジサイがきれいに咲いた！`,`${c}アジサイが満開！`][t]},
+  drawPlant(px,S,y0){
+    const F=S.flags,y=yOf(S.date),md=mdOf(S.date),d=S.day,dead=S.dead;
+    const H=S.p.pot=='s'?14:y==0?16:19;
+    const cane=dead?'#8d7a6a':'#7a6a4a';
+    const tips=[-1,-.5,0,.5,1].map((s2,i)=>[32+s2*H*0.55,y0-H*(i==2?1:0.8)]);
+    tips.forEach(([tx,ty])=>line(px,32,y0,tx,ty,cane));
+    if(dead)return;
+    const bare=(y==0&&md>=1125)||(y==1&&md<=320);
+    if(bare){if(!F.cutBuds)tips.forEach(([tx,ty])=>px(tx-1,ty-1,'#8a9a5a',2,2));return}
+    const yl=y==0&&md>=1105;
+    tips.forEach(([tx,ty],i)=>{const n=Math.max(3,Math.round(H/3));
+      for(let k=1;k<=n;k++){const t2=k/n,lx=32+(tx-32)*t2,ly=y0+(ty-y0)*t2;
+        [[-3,0],[1,-1]].forEach(([ox,oy],j)=>{if(hash(lx+ox,ly+oy+i)<.8)px(lx+ox,ly+oy,yl?'#c9b458':(j?'#2f7a3a':'#4a9a4a'),3,2)})}});
+    // 花:1年目はもらった鉢の花(花がら切りまで)、2年目は土の色
+    let col=null,n=0;
+    if(y==0&&md<=625&&!(F.prune&&d>=F.pruneDay)){col=['#b197fc','#d0bfff'];n=4}
+    if(y==1&&md>=603&&!S.noBloom){col=HYD_COL[hydColor(S)];n=[0,0,2,4,5][S.tier()]}
+    if(y==1&&md>=520&&md<603&&!S.noBloom){[2,0,4,1,3].slice(0,[0,0,2,4,5][S.tier()]).forEach(k=>{const [tx,ty]=tips[k];px(tx-1,ty-2,'#a9d18e',3,2)})}
+    if(col)[2,0,4,1,3].slice(0,n).forEach(k=>{const [tx,ty]=tips[k];drawPattern(px,tx-3,ty-4,['.abab.','ababab','bababa','ababab','.baba.'],{a:col[0],b:col[1]})});
+  },
+  events:[
+    {id:'prune',force:true,cond:(p,tl,S)=>!S.fatal||S.fatal.day>60,from:[6,25],to:[7,8],title:'花が色あせてきた',text:()=>'もらったアジサイの花が、色あせて緑っぽくなってきた。',
+      choices:()=>[
+        {label:'今(7月中)のうちに、花から2〜3節下で切る',ef:{good:true,set:{prune:'good'},note:'7月中に花から2〜3節下で切った。秋にそこから来年の花芽ができた'}},
+        {label:'秋になってから切る',ef:{noBloom:'8月以降に切ったので、できはじめた来年の花芽を切り落としてしまった',set:{prune:'late'}}},
+        {label:'切らずにそのまま',ef:{q:-5,note:'切らなくても咲くが、株が大きく背が高くなった'}}]},
+    {id:'winterbud',force:true,cond:(p,tl,S)=>p.place!='room'&&!S.noBloom,yearOk:y=>y==1,from:[1,15],to:[2,10],title:'枯れちゃった？',text:()=>'葉が全部落ちて、枯れ枝みたいになっている。枝の先に、ぷっくりした芽がある。',
+      choices:()=>[
+        {label:'ぷっくりした芽は来年の花芽。そのままにする',ef:{good:true,note:'冬に葉が落ちるのは自然なこと。花芽を残して春を待った'}},
+        {label:'見た目が悪いので、枝を短く切りそろえる',ef:{noBloom:'冬に枝先を切り、ぷっくりした花芽ごと落としてしまった',set:{cutBuds:true}}}]},
+    {id:'color',force:true,cond:(p,tl,S)=>p.goal!='white'&&!(S.fatal&&S.fatal.day<300),yearOk:y=>y==1,from:[3,1],to:[3,20],title:'花の色を決めるとき',text:p=>`芽が動きはじめた。${p.goal=='blue'?'青':'ピンク'}にしたいなら、今のうちに土に何かする？`,
+      choices:()=>[
+        {label:'ミョウバン(アルミニウム)をとかした水をあげる',ef:{set:{alum:true},note:'ミョウバン水でアルミニウムを足した(青くなりやすい)'}},
+        {label:'苦土石灰を土にまく',ef:{set:{lime:true},note:'苦土石灰で土をアルカリ寄りにした(ピンクになりやすい)'}},
+        {label:'何もしない',ef:{note:'土はそのまま。色は土しだい'}}]},
+    {id:'snail',from:[6,10],to:[7,10],weather:'rain',title:'葉に穴が…',text:()=>'雨の日の朝、葉にたくさん穴があいて、キラキラした筋が残っている。ナメクジだ。',
+      choices:()=>[
+        {label:'夜に見回って、ナメクジをつかまえる',ef:{good:true,note:'夜の見回りでナメクジを退治した'}},
+        {label:'放っておく',ef:{q:-10,note:'ナメクジに葉を食べられた'}}]},
+    {id:'aphid',from:[4,1],to:[5,20],yearOk:y=>y==1,title:'アブラムシ',text:()=>'新しい芽に、小さな虫がびっしり。アブラムシだ。',
+      choices:()=>[
+        {label:'テープで取ったり、水で流したりする',ef:{good:true,note:'アブラムシを取りのぞいた'}},
+        {label:'放っておく',ef:{q:-10,note:'アブラムシに汁を吸われ、芽が弱った'}}]},
+    {id:'heat',from:[7,25],to:[8,25],weather:'sun',temp:36,cond:p=>p.place!='room',title:'猛暑日',text:()=>'最高気温36℃。夕方、葉がぐったりしおれている。',
+      choices:p=>[
+        {label:'たっぷり水をやり、鉢なら半日かげに移す',ef:{good:true,note:'猛暑日に水をたっぷりやり、しおれから回復した'}},
+        {label:'夜になれば元気になるはず',ef:p.pot=='s'?{fatal:'小さな鉢が真夏の暑さで水切れし、枯れてしまった'}:{q:-15,note:'水切れで葉のふちが茶色くなった'}}]},
+    {id:'powdery',from:[9,1],to:[10,10],title:'葉に白い粉',text:()=>'葉に白い粉のようなカビ…「うどんこ病」だ。',
+      choices:()=>[
+        {label:'白くなった葉を取り、風通しをよくする',ef:{good:true,note:'うどんこ病の葉を取り、風通しをよくした'}},
+        {label:'放っておく',ef:{q:-10,note:'うどんこ病が広がって葉が弱った'}}]},
+  ],
+};
+
+/* ============================================================
+   胡蝶蘭(お祝いの鉢を、もう一度咲かせる)
+   ============================================================ */
+const ORCHID = {
+  name:'胡蝶蘭', kind:'ラン(着生植物)', icon:'orchid', open:true, multiYear:true, tickMs:80, level:'★★★ 約1年',
+  desc:'お祝いでもらった胡蝶蘭。花が終わったあと、来年の春にもう一度咲かせよう。熱帯の木の上で育つ、ちょっと変わった植物。',
+  params:[
+    {id:'place',label:'春〜秋の置き場所',opts:[['lace','レースのカーテンごしの明るい窓辺'],['outside','夏は屋外の明るい日かげ'],['sun','直射日光が当たる窓ぎわ'],['dark','暗い部屋の奥']]},
+    {id:'wrap',label:'ギフトのラッピング',opts:[['off','はずして、鉢に風を通す'],['on','きれいなので、つけたまま']]},
+    {id:'water',label:'水やり',opts:[['dry','水苔がすっかり乾いてから(10〜15日に1回、冬はもっと少なく)'],['daily','毎日少しずつ'],['rare','月に1回(夏も)']]},
+    {id:'autumn',label:'秋(9〜10月)の夜',opts:[['cool','夜は18℃くらいの涼しい部屋に、1か月ほど置く'],['hot','一年中、25℃以上の暖かい部屋']]},
+    {id:'winter',label:'冬の置き場所',opts:[['warm','部屋の中央の暖かい所(15℃以上)'],['window','夜の窓ぎわ(5℃くらいになる)'],['heater','暖房の風が直接当たる所']]},
+    {id:'fert',label:'肥料',opts:[['good','5〜9月だけ、うすい液肥'],['none','なし'],['winter','冬も毎週あげる']]},
+  ],
+  evaluate(p){
+    const r=newEval(),fw=daysBetween(D(4,1),DY(1,1,15));
+    r.info('胡蝶蘭は、熱帯の森で木の幹に根をはりつけて育つ「着生植物」');
+    if(p.place=='lace') r.good('レースのカーテンごしのやわらかい光で、葉が元気に育った');
+    else if(p.place=='outside') r.good('夏は屋外の明るい日かげで、風通しよく育った');
+    else if(p.place=='sun') r.bad(25,'直射日光で葉が焼けた(葉焼け)');
+    else {r.bad(20,'暗い部屋の奥では光が足りず、花芽ができにくい');r.capTo(2)}
+    if(p.wrap=='off') r.good('ラッピングをはずし、鉢に風が通った');
+    else r.bad(20,'ラッピングの中に水がたまり、根ぐされしかけた');
+    if(p.water=='dry') r.good('水苔がすっかり乾いてから水やり。根が元気だった');
+    else if(p.water=='daily') r.kill(p.wrap=='on'?40:60,'毎日の水やりで水苔がずっとぬれたまま。根ぐされで枯れた');
+    else r.bad(20,'夏も月1回では水が足りず、葉がしわしわになった');
+    if(p.autumn=='cool') r.good('秋に夜18℃くらいの涼しさに1か月ほど当て、花芽ができた');
+    else r.nob('一年中暖かく、花芽を作る合図(秋の夜の涼しさ)がなかった');
+    if(p.winter=='warm') r.good('冬は部屋の中央の暖かい所で、15℃以上を保った');
+    else if(p.winter=='window') r.kill(fw,'冬の夜の窓ぎわは5℃くらい。寒さで株が傷んで枯れた(15℃以上が目安)');
+    else {r.bad(20,'暖房の風が直接当たり、乾燥でつぼみが落ちた');r.capTo(3)}
+    if(p.fert=='good') r.good('育つ時期(5〜9月)だけ、うすい液肥をあげた');
+    else if(p.fert=='none'){r.bad(10,'肥料がなく、花の数が少なめ');r.capTo(3)}
+    else r.bad(20,'休んでいる冬に肥料をあげ、根が傷んだ');
+    return r;
+  },
+  timeline(){const start=D(4,1);return {start,germDay:0,endDay:daysBetween(start,DY(1,4,20)),spike:daysBetween(start,D(12,5)),bloom:daysBetween(start,DY(1,3,15))}},
+  eventCount:()=>2,
+  eventMinDay:()=>10,
+  step(S){const m=S.date.getMonth()+1;if(m==3||m==4)return 2;if(m==1||m==2)return 7;return 4},
+  startLog:()=>'4月1日、お祝いに胡蝶蘭の鉢をもらった。',
+  container:()=>'m',
+  indoor(S){const md=mdOf(S.date);return !(S.p.place=='outside'&&md>=601&&md<=930)},
+  milestones(S,say){
+    const T=S.tl,d=S.day,md=mdOf(S.date),y=yOf(S.date);
+    if(y==0&&md>=701)say('root','鉢の外に、白っぽい太い根がのびてきた(気根)。');
+    if(d>=T.spike)say('spk',S.noBloom?'冬になっても、花芽が出てこない…':'株元から、花芽が出てきた！');
+    if(y==1&&md>=210&&!S.noBloom)say('bud','花茎の先に、つぼみがならんだ。');
+    if(d>=T.bloom&&!S.noBloom)say('bl','胡蝶蘭が、もう一度咲いた！');
+  },
+  rank(t){return ['枯れてしまった…','もう一度は咲かなかった','花が少しだけ咲いた','もう一度きれいに咲いた！','満開！もらったときより豪華に咲いた'][t]},
+  drawPlant(px,S,y0){
+    const T=S.tl,F=S.flags,d=S.day,md=mdOf(S.date),y=yOf(S.date),dead=S.dead;
+    // 水苔
+    px(24,y0,'#b5a27a',16,1);
+    // 葉
+    const lc=dead?'#b5a060':'#3f7f3a',lc2=dead?'#9a8a50':'#2f6b2f';
+    [[-1,0,13],[1,-1,12],[-1,-3,10],[1,-4,9]].forEach(([dir,dy,L],i)=>{
+      for(let k=0;k<L;k++){const th=k<2||k>L-3?2:3;px(32+dir*k-(dir<0?0:0),y0-2+dy+k*0.3,i%2?lc2:lc,1,th)}});
+    if(dead)return;
+    if(y==0&&md>=701)[[22,y0+2],[41,y0+1]].forEach(([x,yy],i)=>line(px,32+(i?3:-3),y0,x,yy,'#c9d6c0'));
+    // 花茎と花
+    const moth=(x,yy,c)=>drawPattern(px,x-3,yy-3,['ww...ww','wwwwwww','.wwcww.','..www..','.w...w.'],{w:c,c:'#f06595'});
+    const spikeAt=(n,len,col,buds)=>{
+      const pts=[];for(let k=0;k<len;k++){const x=33+Math.max(0,k-len*0.55)*0.9,yy=y0-4-k+Math.max(0,k-len*0.55)*0.5;px(x,yy,'#5a7a3a');pts.push([x,yy])}
+      px(31,y0-16,'#c9a66b',1,12);
+      for(let i=0;i<n;i++){const [x,yy]=pts[Math.max(0,pts.length-1-i*3)];buds?px(x+1,yy,'#d0e8b0',2,2):moth(x+2,yy,col)}
+    };
+    if(y==0&&md<=505&&!(F.stem&&d>=F.stemDay))spikeAt(6,28,'#ffffff',false);
+    else if(F.stem=='node'&&y==0&&md>=710&&md<=815)spikeAt(2,14,'#ffffff',false);
+    else if(!S.noBloom&&d>=T.spike){
+      const len=Math.min(28,4+(d-T.spike)/3.5);
+      const n=[0,0,2,4,6][S.tier()];
+      if(d>=T.bloom)spikeAt(n,28,'#ffffff',false);
+      else if(y==1&&md>=210)spikeAt(n,len,'#ffffff',true);
+      else spikeAt(0,len,'#ffffff',true);
+    }
+  },
+  events:[
+    {id:'stem',force:true,from:[5,3],to:[5,10],title:'花が落ちてきた',text:()=>'もらったときの花が、しおれてぽとりと落ちてきた。花茎はどうする？',
+      choices:()=>[
+        {label:'花茎を根元近くで切り、株を休ませる',ef:{good:true,set:{stem:'base'},note:'花茎を根元で切って株を休ませ、来年のための体力をたくわえた'}},
+        {label:'下から2〜3節を残して切り、夏にもう一度咲かせる(2番花)',ef:{q:-10,set:{stem:'node'},note:'夏に2番花が咲いた。そのぶん株が体力を使い、春の花は少なめ'}},
+        {label:'しおれた花茎もそのままにしておく',ef:{q:-10,note:'しおれた花茎に栄養を使ってしまった'}}]},
+    {id:'repot',force:true,cond:(p,tl,S)=>!S.fatal||S.fatal.day>70,from:[5,18],to:[6,10],title:'根がいっぱい',text:()=>'根が鉢からはみ出し、水苔が黒っぽく古くなってきた。',
+      choices:()=>[
+        {label:'花が終わった今のうちに、新しい水苔で植えかえる(傷んだ根は切る)',ef:{good:true,note:'花後の5〜6月に、新しい水苔で植えかえた'}},
+        {label:'寒くなってから植えかえる',ef:{q:-20,note:'寒い時期の植えかえで根が傷み、なかなか回復しなかった'}},
+        {label:'そのまま',ef:{q:-15,note:'古い水苔が傷んで、根が弱った'}}]},
+    {id:'spike',force:true,cond:(p,tl,S)=>!S.noBloom&&!S.fatal,from:[12,15],to:[12,28],title:'花芽が出た！',text:()=>'株元から、根とは少しちがう、先のとがった緑の芽が出てきた。花芽だ！',
+      choices:()=>[
+        {label:'支柱を立てて花茎をクリップでとめる。鉢の向きは変えない',ef:{good:true,note:'支柱を立て、鉢の向きを変えずに花茎をまっすぐ育てた'}},
+        {label:'日に当てようと、毎日鉢の向きを変える',ef:{q:-10,note:'向きを変えるたびに花茎が曲がり、花がばらばらの向きに咲いた'}},
+        {label:'さわらずに、そのまま',ef:{q:-5,note:'支柱がなく、花茎がかたむいてしまった'}}]},
+    {id:'airroot',from:[7,10],to:[8,20],title:'へんな根',text:()=>'鉢の外に、白っぽい太い根がにょきにょき伸びてきた。',
+      choices:()=>[
+        {label:'空気中の水分を吸う「気根」なので、そのままにする',ef:{good:true,note:'気根は空気中の水分を吸う大切な根。そのままにした'}},
+        {label:'じゃまなので切る',ef:{q:-15,note:'元気な気根を切ってしまい、株が弱った'}},
+        {label:'無理に鉢の中へ押しこむ',ef:{q:-10,note:'押しこんだ根が折れて、そこから傷んだ'}}]},
+    {id:'aircon',from:[7,15],to:[8,25],cond:p=>p.place!='outside',title:'エアコンの風',text:()=>'真夏、冷房の風が胡蝶蘭に直接当たっている。',
+      choices:()=>[
+        {label:'風が当たらない所へ移す',ef:{good:true,note:'エアコンの風が直接当たらない所へ移した'}},
+        {label:'すずしくて気持ちよさそう。そのまま',ef:{q:-15,note:'冷たく乾いた風で、葉がしわしわになった'}}]},
+    {id:'trip',from:[8,5],to:[8,20],title:'家族旅行',text:()=>'1週間、家族で旅行に出かける。',
+      choices:p=>[
+        {label:'出発前にいつも通り水をやり、直射日光の当たらない所へ',ef:{good:true,note:'胡蝶蘭は乾燥に強い。いつも通りの水で1週間の留守も大丈夫だった'}},
+        {label:'心配なので、受け皿に水をたっぷりためていく',ef:{q:-20,note:'受け皿の水で根がずっとぬれて、根ぐされしかけた'}}]},
+    {id:'scale',from:[5,20],to:[9,30],title:'葉に白いつぶ',text:()=>'葉の裏に、白い小さなつぶがくっついている。カイガラムシだ。',
+      choices:()=>[
+        {label:'やわらかい歯ブラシや綿棒でこすり落とす',ef:{good:true,note:'カイガラムシをこすり落とした'}},
+        {label:'放っておく',ef:{q:-15,note:'カイガラムシが増えて、葉がべたべたになった'}}]},
+  ],
+};
+
 const PLANTS = {
   asagao: ASAGAO,
   sakura: SAKURA,
@@ -1599,6 +1830,8 @@ const PLANTS = {
   tulip: TULIP,
   narcissus: NARCISSUS,
   rose: ROSE,
+  hydrangea: HYDRANGEA,
+  orchid: ORCHID,
   more:{name:'？？？',kind:'追加予定',icon:'more',open:false},
 };
 
@@ -1615,6 +1848,8 @@ function drawIcon(cv,type){
   if(type=='tulip'){[[6,'#e03131'],[12,'#fcc419'],[18,'#f783ac']].forEach(([x,c])=>{px(x,9,'#4f8a5f',1,9);px(x-2,14,'#5f9e6e',2,3);px(x+1,13,'#5f9e6e',2,3);drawPattern(px,x-2,5,['c.c.c','ccccc','ccccc','.ccc.'],{c})})}
   if(type=='narcissus'){[[7,0],[16,1]].forEach(([x,k])=>{for(let j=0;j<9;j++){px(x-2,18-j,'#5a9a8a');px(x+2,18-j,'#4a8a7a')}px(x,7,'#4a8a7a',1,11);k?drawPattern(px,x-2,3,['y.y.y','yoooy','yoooy','.yyy.'],{y:'#ffe066',o:'#f59f00'}):drawPattern(px,x-2,4,['w.w.w','wywyw','.w.w.'],{w:'#ffffff',y:'#fcc419'})})}
   if(type=='rose'){[[-6,13],[-3,8],[0,5],[3,8],[6,13]].forEach(([dx,ty])=>line(px,12,18,12+dx,ty,'#4a6a2a'));[[6,12],[9,8],[13,5],[16,8]].forEach(([x,y])=>px(x,y,'#3f8f4a',2,2));[[5,9],[12,3],[16,6]].forEach(([x,y])=>drawPattern(px,x,y,['.pp.','pPPp','.pp.'],{p:'#f783ac',P:'#e64980'}))}
+  if(type=='hydrangea'){[[-5,12],[0,8],[5,12]].forEach(([dx,ty])=>line(px,12,18,12+dx,ty,'#7a6a4a'));px(4,13,'#4a9a4a',4,3);px(15,14,'#2f7a3a',4,3);[[4,6,'#5c7cfa','#91a7ff'],[12,3,'#9775fa','#b197fc'],[16,7,'#f783ac','#fcc2d7']].forEach(([x,y,a,b])=>drawPattern(px,x-2,y,['.aba.','ababa','babab','.bab.'],{a,b}))}
+  if(type=='orchid'){px(0,0,'#efe3cc',24,24);px(0,19,'#b08a5a',24,5);px(8,16,'#c8643b',8,4);for(let k=0;k<6;k++){px(12-k,15+k*0.3,'#3f7f3a',1,2);px(12+k,14+k*0.3,'#2f6b2f',1,2)}for(let k=0;k<12;k++)px(13+Math.max(0,k-6)*0.8,14-k+Math.max(0,k-6)*0.4,'#5a7a3a');[[17,3],[15,6],[18,8]].forEach(([x,y])=>drawPattern(px,x-2,y-1,['ww.ww','wwcww','.www.'],{w:'#ffffff',c:'#f06595'}))}
   if(type=='more'){px(0,0,'#e8e0cc',24,24);drawPattern(px,8,5,['.xxx.','x...x','...x.','..x..','.....','..x..'],{x:'#8a7a66'})}
 }
 const WX_NAME={sun:'はれ',cloud:'くもり',rain:'雨',storm:'台風',snow:'雪'};
@@ -1854,7 +2089,8 @@ function render(noAnim){
 
 function showResult(){
   stop();
-  const pl=PL(),tier=S.tier();
+  const pl=PL();if(pl.finalize&&!S.finalized){pl.finalize(S);S.finalized=true}
+  const tier=S.tier();
   drawScene($('resCv'),S);
   $('resRank').textContent=pl.rank?pl.rank(tier,S):pl.ranks[tier];
   $('resStars').textContent='★'.repeat(tier)+'☆'.repeat(4-tier);
