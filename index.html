@@ -2053,6 +2053,262 @@ const SPRAYMUM = {
   ],
 };
 
+/* ============================================================
+   ユリ(秋に球根を植えて、夏に咲かせる)
+   ============================================================ */
+function lilyDates(p){
+  const m=+p.month||10, start=m>=9?DY(0,m,20):DY(1,m,15);
+  const germDay=m==4?18:daysBetween(start,DY(1,3,25));
+  const bloomDay=daysBetween(start,p.kind=='sukashi'?DY(1,6,12):DY(1,7,8));
+  return {start,germDay,bloomDay,endDay:daysBetween(start,DY(1,9,15)),summer:daysBetween(start,DY(1,7,25))};
+}
+const LILY = {
+  name:'ユリ', kind:'秋植え球根', icon:'lily', open:true, multiYear:true, tickMs:80, level:'★★☆ 約11か月',
+  desc:'秋に球根を植えて、夏に大きな花を咲かせる。ユリの球根には皮がなく、とてもデリケート。',
+  params:[
+    {id:'kind',label:'品種',opts:[['casablanca','カサブランカ(大きな白い花・いい香り・7月)'],['sukashi','スカシユリ(上向きのオレンジの花・6月)']]},
+    {id:'bulb',label:'買ってきた球根',opts:[['now','買ったその日に植える'],['dry','いそがしいので、部屋に3週間置いてから植える']]},
+    {id:'month',label:'植える月',opts:[[10,'10月'],[11,'11月'],[1,'1月'],[4,'4月']]},
+    {id:'depth',label:'植える深さ',opts:[['deep','球根2〜3個分の深さ'],['shallow','球根の頭が少し出るくらい']]},
+    {id:'place',label:'場所',opts:[['cool','日当たりがよく、株元は草花やマルチで日かげにする'],['hot','日当たりがよく、株元もカンカン照り'],['shade','一日中日かげ']]},
+    {id:'pot',label:'植える所',opts:[['g','庭に直接'],['l','深めの8号鉢に1球'],['s','小さな鉢']]},
+    {id:'water',label:'水やり',opts:[['dry','土の表面が乾いたらたっぷり'],['daily','毎日たっぷり'],['rare','ほとんどやらない']]},
+    {id:'fert',label:'肥料',opts:[['good','植えるときに少し＋芽が出たら追肥＋花のあとにお礼肥'],['none','なし'],['lots','たっぷり']]},
+  ],
+  evaluate(p){
+    const r=newEval(),t=lilyDates(p),m=+p.month,pot=p.pot!='g';
+    r.info('ユリの球根は、うろこのような「鱗片(りんぺん)」が重なったもの。皮がなく乾燥に弱い');
+    if(p.bulb=='now') r.good('買ってすぐ植え、球根がしなびなかった');
+    else {r.bad(20,'部屋に置いているあいだに球根がしなびて、花が少なくなった');r.capTo(3)}
+    if(m==10||m==11) r.good(`${m}月に植えて、冬のあいだに根がしっかり張った`);
+    else if(m==1){r.bad(10,'1月植えで、根を張る時間が短かった');r.capTo(3)}
+    else {r.bad(15,'春植えで根を張る時間が短く、花が小さめ');r.capTo(3)}
+    if(p.depth=='deep') r.good('深く植えたので、茎の途中から出る「上根」もしっかり張った');
+    else {r.bad(15,'浅植えで上根が張れず、茎がぐらついた');r.capTo(2)}
+    if(p.place=='cool') r.good('頭は日なた、足元は日かげ。ユリの好む環境だった');
+    else if(p.place=='hot') r.bad(15,'株元が暑くなりすぎて、根が弱った');
+    else { if(p.kind=='sukashi') r.nob('日なたが大好きなスカシユリは、日かげで花芽ができなかった'); else {r.bad(20,'日かげで茎がひょろひょろ、花が少ない');r.capTo(2)} }
+    if(p.pot=='g') r.good('庭に植え、根がのびのび育った');
+    else if(p.pot=='l') r.good('深めの鉢で、上根も張れた');
+    else {r.bad(20,'小さな鉢で根がつまり、花が少なかった');r.capTo(2)}
+    if(p.water=='dry') r.good('乾いたらたっぷり。ちょうどよい水やり');
+    else if(p.water=='daily') r.bad(20,'水のやりすぎで、球根がくさりかけた');
+    else { if(pot) r.kill(t.summer,'真夏に鉢の土がカラカラになり、水切れで枯れた'); else r.bad(10,'雨のない日が続き、葉が少し枯れた'); }
+    if(p.fert=='good') r.good('芽が出たら追肥、花のあとにお礼肥。球根が太った');
+    else if(p.fert=='none'){r.bad(10,'肥料がなく、球根が太らなかった');r.capTo(3)}
+    else r.bad(20,'肥料が多すぎて、球根がくさりかけた');
+    return r;
+  },
+  timeline(p){return lilyDates(p)},
+  eventCount:()=>2,
+  eventMinDay:(p,tl)=>tl.germDay+5,
+  step(S){const T=S.tl,d=S.day;if(d<T.germDay-10)return 7;if(d>=T.bloomDay-20&&d<=T.bloomDay+20)return 2;return 4},
+  startLog(S){return `${S.tl.start.getMonth()+1}月${S.tl.start.getDate()}日、ユリの球根を買ってきた。`},
+  container:S=>S.p.pot=='g'?'g':S.p.pot=='l'?'l':'s',
+  milestones(S,say){
+    const T=S.tl,d=S.day,md=mdOf(S.date);
+    if(d>=3)say('pl',S.p.bulb=='dry'?'3週間たって、少ししなびた球根を植えた。':'球根を植えた。');
+    if(d>=T.germDay)say('g','土から、太い芽が出てきた！');
+    if(d>=T.bloomDay-12)say('bd',S.noBloom?'茎はのびたのに、つぼみがつかない…':'茎の先に、大きなつぼみ！');
+    if(d>=T.bloomDay&&!S.noBloom)say('bl',S.p.kind=='sukashi'?'オレンジのスカシユリが咲いた！':'カサブランカが咲いた！いい香り。');
+    if(md>=901)say('yl','茎と葉が、黄色くなってきた。球根に栄養がたまっている。');
+  },
+  rank(t){return ['枯れてしまった…','花が咲かなかった','花が少しだけ咲いた','大きな花がきれいに咲いた！','満開！球根も太って、来年へ'][t]},
+  drawPlant(px,S,y0){
+    const T=S.tl,F=S.flags,d=S.day,md=mdOf(S.date),p=S.p,dead=S.dead;
+    const cont=this.container(S),xs=p.pot=='g'?[-12,0,12]:[0];
+    if(S.noSprout||d<T.germDay||dead){drawBulbsUnder(px,cont,y0,xs,Math.min(4,d/20),dead);return}
+    if(F.stemCut&&d>=F.stemCutDay){drawBulbsUnder(px,cont,y0,xs,4,false);return}
+    const full=p.depth=='shallow'?20:p.pot=='s'?18:28;
+    const H=Math.round(full*Math.min(1,0.15+(d-T.germDay)/(T.bloomDay-T.germDay-8)));
+    const yl=md>=901, lean=p.depth=='shallow'&&d>=T.bloomDay-10?4:0;
+    const sc=yl?'#b8a050':'#4a8a3a',lc=yl?'#c9b458':'#3f8f4a';
+    const n=[0,0,1,2,3][S.tier()];
+    xs.forEach((dx,i)=>{
+      const x=32+dx;
+      line(px,x,y0,x+lean,y0-H,sc);
+      for(let k=4;k<H;k+=3){const yy=y0-k,xx=x+lean*k/H;px(xx+(k%2?1:-3),yy,lc,3,1)}
+      if(F.stake&&p.depth!='shallow')px(x+2,y0-H*0.7,'#c9a66b',1,H*0.7);
+      if(S.noBloom||yl)return;
+      const tx=x+lean,ty=y0-H;
+      const off=F.headOff&&d>=F.headOffDay;
+      for(let k=0;k<n;k++){
+        const fx=tx+(k%2?3:-3)*(k>0?1:0),fy=ty-1+k*2;
+        if(d>=T.bloomDay&&d<T.bloomDay+18&&!off){
+          if(p.kind=='sukashi')drawPattern(px,fx-3,fy-3,['o..o..o','.oo.oo.','..ooo..','.oo.oo.'],{o:'#f76707'});
+          else drawPattern(px,fx-3,fy-3,['w.....w','ww...ww','.wwwww.','..wyw..','...w...'],{w:'#ffffff',y:'#fcc419'});
+        }else if(d>=T.bloomDay-12&&d<T.bloomDay)px(fx,fy-3,'#a9d18e',2,4);
+        else if(d>=T.bloomDay+18&&F.headOff=='never')px(fx,fy-2,'#7a9a3a',2,3);
+      }
+    });
+  },
+  events:[
+    {id:'stake',force:true,cond:(p,tl,S)=>!(S.fatal&&S.fatal.germ),dayRange:(p,tl)=>[tl.bloomDay-35,tl.bloomDay-28],title:'背がのびてきた',text:()=>'茎がぐんぐんのびて、つぼみの重さでゆれている。',
+      choices:()=>[
+        {label:'球根を傷つけないよう少しはなして、草丈の2/3くらいの支柱を立てる',ef:{good:true,set:{stake:true},note:'支柱を立てて、大きな花の重さでも倒れなかった'}},
+        {label:'そのまま',ef:{q:-10,note:'雨の日に茎がかたむき、花が泥でよごれた'}}]},
+    {id:'pollen',force:true,cond:(p,tl,S)=>!S.noBloom&&!S.fatal,dayRange:(p,tl)=>[tl.bloomDay+2,tl.bloomDay+4],title:'花粉で服がまっ黄色！',text:()=>'花に顔を近づけたら、服にオレンジ色の花粉がべったり…。',
+      choices:()=>[
+        {label:'セロハンテープでそっと取る。花のおしべ(やく)は、咲いたらすぐ摘んでおく',ef:{good:true,note:'花粉はテープで取る。咲いたらすぐ「やく」を摘むと、服も花びらもよごれない'}},
+        {label:'すぐに水でゴシゴシこする',ef:{note:'花粉は水でこするとかえって広がる。テープでそっと取るのがコツ'}}]},
+    {id:'cat',force:true,cond:(p,tl,S)=>!S.noBloom&&!S.fatal,dayRange:(p,tl)=>[tl.bloomDay+6,tl.bloomDay+8],title:'おばあちゃんに花を',text:()=>'きれいに咲いたので、切り花にしておばあちゃんの家に持っていきたい。おばあちゃんは猫をかっている。',
+      choices:()=>[
+        {label:'猫のいる家には、ユリは持っていかない。ほかの花にする',ef:{good:true,note:'ユリは猫に猛毒。花粉をなめたり、花瓶の水を飲んだりするだけでも、腎臓がこわれることがある'}},
+        {label:'花粉のついたおしべを取ってから持っていく',ef:{note:'おしべを取っても、ユリは花・葉・茎・花瓶の水まで猫に猛毒。猫のいる家にはかざらない'}}]},
+    {id:'deadhead',force:true,cond:(p,tl,S)=>!S.noBloom&&!S.fatal,dayRange:(p,tl)=>[tl.bloomDay+12,tl.bloomDay+14],title:'花がしおれてきた',text:()=>'花びらがしおれて、色があせてきた。',
+      choices:()=>[
+        {label:'花びらが落ちる前に、花のつけ根で摘み取る(茎と葉は残す)',ef:{good:true,set:{headOff:'now'},note:'花がらを早めに摘み、種づくりに栄養を使わせなかった'}},
+        {label:'そのままにしておく',ef:{cap:3,set:{headOff:'never'},note:'花をそのままにして種ができ、球根に栄養が回らなかった'}}]},
+    {id:'stem',force:true,cond:(p,tl,S)=>!(S.fatal&&S.fatal.germ)&&!S.noBloom,dayRange:(p,tl)=>[tl.bloomDay+24,tl.bloomDay+30],title:'花のあとの茎',text:()=>'花は終わったのに、背の高い茎と葉が残っている。',
+      choices:()=>[
+        {label:'茎と葉は、自然に黄色く枯れるまで残す',ef:{good:true,note:'茎と葉を残し、球根に栄養をたくわえた'}},
+        {label:'花が終わったので、茎を根元から切る',ef:{cap:3,set:{stemCut:true},note:'まだ働いている茎と葉を切り、球根が太れなかった'}}]},
+    {id:'aphid',from:[4,15],to:[6,10],title:'アブラムシ',text:()=>'つぼみや葉の裏に、小さな虫がびっしり。アブラムシだ。',
+      choices:()=>[
+        {label:'テープやブラシで取りのぞく',ef:{good:true,note:'アブラムシを取りのぞいた(ユリのウイルス病を運ぶ)'}},
+        {label:'放っておく',ef:{q:-20,note:'アブラムシがウイルス病を運び、葉にまだら模様が出た'}}]},
+    {id:'mold',from:[6,5],to:[7,5],weather:'rain',title:'葉に茶色いはん点',text:()=>'梅雨の長雨で、葉に茶色いはん点が広がってきた。「葉枯病」だ。',
+      choices:()=>[
+        {label:'病気の葉を取り、鉢なら雨の当たらない所へ',ef:{good:true,note:'病気の葉を取り、雨をさけて広がりを止めた'}},
+        {label:'放っておく',ef:{q:-20,note:'病気が広がって、下の葉が枯れた'}}]},
+    {id:'heat',from:[7,25],to:[8,20],weather:'sun',temp:35,title:'猛暑日',text:()=>'最高気温35℃。土がカラカラに乾いている。',
+      choices:p=>[
+        {label:'夕方にたっぷり水をやり、株元にワラをしいて地温を下げる',ef:{good:true,note:'株元を涼しく保ち、暑さをしのいだ'}},
+        {label:'花は終わったので、そのまま',ef:p.pot=='s'?{fatal:'小さな鉢が水切れして、球根ごと枯れてしまった'}:{q:-15,note:'株元が熱くなり、葉が早く枯れた'}}]},
+  ],
+};
+
+/* ============================================================
+   スズラン(芽を植えて、2年目も咲かせる)
+   ============================================================ */
+function suzuDates(p){
+  const m=+p.month||10, start=m>=9?DY(0,m,15):DY(1,m,10);
+  const g1=m==4?daysBetween(start,start)+12:daysBetween(start,DY(1,3,25));
+  return {start,germDay:g1,bloom1:daysBetween(start,DY(1,4,28)),yellow1:daysBetween(start,DY(1,9,25)),dorm1:daysBetween(start,DY(1,10,25)),
+    sprout2:daysBetween(start,DY(2,3,25)),bloom2:daysBetween(start,DY(2,4,28)),endDay:daysBetween(start,DY(2,5,10)),summer:daysBetween(start,DY(1,8,1))};
+}
+const SUZURAN = {
+  name:'スズラン', kind:'宿根草', icon:'suzuran', open:true, multiYear:true, tickMs:80, level:'★★★ 約1年半',
+  desc:'春に小さな鈴のような白い花が咲く。寒さに強く、暑さに弱い。関東の夏をこえて、2年目も咲かせよう。',
+  params:[
+    {id:'var',label:'品種',opts:[['german','ドイツスズラン(大きめで育てやすい)'],['japan','日本スズラン(小さくて、暑さに特に弱い)']]},
+    {id:'month',label:'植える月',opts:[[10,'10月'],[11,'11月'],[1,'1月'],[4,'4月(花つきの苗)']]},
+    {id:'depth',label:'植える深さ',opts:[['tip','芽の先が少し土から出るくらい'],['deep','10cmの深さにうめる']]},
+    {id:'place',label:'場所',opts:[['tree','落葉樹の下(春は日なた、夏は木かげ)'],['sun','一年中、日なた'],['west','西日が当たる所'],['dark','一年中、暗い日かげ']]},
+    {id:'pot',label:'植える所',opts:[['g','庭に直接(株間20cm)'],['m','6号鉢に3芽'],['s','小さなポット']]},
+    {id:'water',label:'水やり',opts:[['dry','土の表面が乾いたらたっぷり(冬はひかえめ)'],['daily','毎日たっぷり'],['rare','ほとんどやらない']]},
+    {id:'fert',label:'肥料',opts:[['good','植えるときに元肥＋花のあと(5〜6月)に追肥'],['spring','植えるときの元肥だけ'],['lots','毎週たっぷり']]},
+  ],
+  evaluate(p){
+    const r=newEval(),t=suzuDates(p),m=+p.month,pot=p.pot!='g',jp=p.var=='japan';
+    r.info(jp?'日本スズランは、北の寒い地方の野山に生える。花は小さく、葉にかくれて咲く':'ドイツスズランはヨーロッパ生まれ。花も葉も大きめ');
+    if(m==10||m==11) r.good(`${m}月に植えて、冬の寒さに当たり、春の花の準備ができた`);
+    else if(m==1) r.bad(10,'1月植えで、根を張る時間が少し短かった');
+    else {r.bad(10,'春に花つきの苗を植えた。根が張りきらないまま夏をむかえた');r.capTo(3)}
+    if(p.depth=='tip') r.good('芽の先が少し出るくらいの浅植えで、元気に芽が出た');
+    else {r.bad(20,'深くうめすぎて、芽が出るのがおくれ、花が少なかった');r.capTo(2)}
+    if(p.place=='tree') r.good('春は日なた、夏は木かげ。スズランにぴったりの場所');
+    else if(p.place=='sun'){ if(jp) r.kill(t.summer,'暑さに弱い日本スズランが、夏の日なたで暑さと乾燥にたえられず枯れた'); else {r.bad(25,'夏の強い日ざしで、葉が焼けて弱った');r.capTo(2)} }
+    else if(p.place=='west') r.bad(20,'西日で葉が焼け、夏に弱った');
+    else {r.bad(15,'暗すぎて、花が咲きにくかった');r.capTo(3)}
+    if(jp&&p.place!='sun'){r.bad(10,'関東の夏は、日本スズランには暑すぎた');r.capTo(3)}
+    if(p.pot=='g') r.good('庭に植え、地下の茎(根茎)がのびのび広がった');
+    else if(p.pot=='m') r.good('6号鉢に3芽。ちょうどよい間隔');
+    else {r.bad(20,'小さなポットで夏にすぐ乾き、根がつまった');r.capTo(2)}
+    if(p.water=='dry') r.good('乾いたらたっぷり、冬はひかえめ。ちょうどよい水やり');
+    else if(p.water=='daily') r.bad(20,'水のやりすぎで、根がくさりかけた');
+    else { if(pot) r.kill(t.summer,'真夏に鉢の土がカラカラになり、水切れで枯れた'); else r.bad(15,'夏の乾燥で、葉が早く枯れた'); }
+    if(p.fert=='good') r.good('花のあとの追肥で、来年の花の栄養をたくわえた');
+    else if(p.fert=='spring'){r.bad(15,'花のあとの追肥がなく、2年目の花が少なかった(咲かない原因でいちばん多い)');r.capTo(2)}
+    else r.bad(15,'肥料が多すぎて、根が傷んだ');
+    return r;
+  },
+  timeline(p){return suzuDates(p)},
+  eventCount:()=>2,
+  eventMinDay:(p,tl)=>tl.germDay,
+  step(S){const T=S.tl,d=S.day;if(d>=T.bloom2-15)return 1;if(d<T.germDay||(d>=T.dorm1&&d<T.sprout2))return 7;if((d>=T.bloom1-10&&d<T.bloom1+20))return 2;return 4},
+  startLog(S){return `${S.tl.start.getMonth()+1}月${S.tl.start.getDate()}日、スズランの芽(根茎)を植えた。`},
+  container:S=>S.p.pot,
+  flowers(S,year2){
+    if(S.dead)return 0;
+    const n=S.p.pot=='g'?3:S.p.pot=='m'?3:2;
+    if(!year2)return +S.p.month==4?1:n;
+    if(S.noBloom)return 0;
+    return [0,0,1,n,n][S.tier()];
+  },
+  milestones(S,say){
+    const T=S.tl,d=S.day;
+    if(d>=T.germDay)say('g1','くるっと巻いた葉が、土から出てきた。');
+    if(d>=T.bloom1)say('b1','小さな鈴のような白い花が咲いた！いい香り。');
+    if(d>=T.bloom1+60&&d<T.dorm1)say('su','夏の暑さで、葉のふちが少し茶色くなってきた。');
+    if(d>=T.dorm1)say('d1','葉が枯れて、土の中でお休み中。');
+    if(d>=T.sprout2)say('g2','また芽が出てきた！2年目のスタート。');
+    if(d>=T.bloom2-6)say('bd2',this.flowers(S,true)?'2年目のつぼみが見えてきた！':'2年目は、葉ばかりでつぼみがない…');
+    if(d>=T.bloom2&&this.flowers(S,true))say('b2','2年目も、スズランが咲いた！');
+  },
+  rank(t){return ['枯れてしまった…','2年目は花が咲かなかった','2年目は花が少しだけ','2年目もきれいに咲いた！','2年目は花が増えて、いい香りがいっぱい！'][t]},
+  extraNotes(){return [{t:'info',text:'スズランは花・葉・根のすべてに毒がある。山菜のギョウジャニンニクとまちがえて食べる事故もある'}]},
+  drawPlant(px,S,y0){
+    const T=S.tl,F=S.flags,d=S.day,p=S.p,dead=S.dead;
+    const xs=p.pot=='g'?[-14,0,14]:p.pot=='m'?[-6,0,6]:[-3,3];
+    const leafy=(d>=T.germDay&&d<T.dorm1)||d>=T.sprout2;
+    if(dead||!leafy){
+      drawBulbsUnder(px,p.pot,y0,[],0,false);
+      xs.forEach(dx=>{px(32+dx,y0-1,dead?'#6a4a3a':'#c08a6a',1,2);px(32+dx,y0-2,dead?'#6a4a3a':'#d0a080')});
+      return;
+    }
+    const y2=d>=T.sprout2, base=y2?T.sprout2:T.germDay;
+    const L=Math.min(12,2+(d-base)/3);
+    const hot=!y2&&d>=T.bloom1+60, yl=!y2&&d>=T.yellow1;
+    const lc=yl?'#c9b458':'#3f8f4a',lc2=yl?'#b8a050':'#2f7a3a';
+    const nf=this.flowers(S,y2),bloomD=y2?T.bloom2:T.bloom1;
+    xs.forEach((dx,i)=>{
+      const x=32+dx;
+      if(!y2&&F.leafCut&&d>=F.leafCutDay){px(x,y0-2,lc2,1,2);return}
+      for(let j=0;j<L;j++){const w=j<2||j>L-3?1:3;px(x-w,y0-1-j,lc,w,1);px(x+1,y0-1-j,lc2,w-1||1,1)}
+      if(hot&&!yl){px(x-3,y0-L,'#a07a4a',1,2);px(x+3,y0-L+1,'#a07a4a',1,2)}
+      if(i>=nf)return;
+      const off=!y2&&F.headOff&&F.headOff!='never'&&d>=F.headOffDay;
+      if(d>=bloomD-8&&d<bloomD+20&&!off){
+        const sh=Math.min(10,L-1);
+        line(px,x+2,y0-1,x+3,y0-sh,'#5a8a4a');line(px,x+3,y0-sh,x+6,y0-sh+1,'#5a8a4a');
+        const open=d>=bloomD;
+        for(let k=0;k<3;k++){const bx=x+4+k,by=y0-sh+2+k*3;open?drawPattern(px,bx,by,['.w.','www','w.w'],{w:'#ffffff'}):px(bx+1,by+1,'#d8ecc8',2,2)}
+      }else if(!y2&&F.headOff=='never'&&d>=bloomD+20&&d<T.yellow1)[0,1,2].forEach(k=>px(x+3,y0-6+k*2,'#e03131',2,2));
+    });
+  },
+  events:[
+    {id:'vase',force:true,cond:(p,tl,S)=>!(S.fatal&&S.fatal.germ),dayRange:(p,tl)=>[tl.bloom1+3,tl.bloom1+5],title:'コップにかざろう',text:()=>'咲いたスズランを少し切って、コップに生けた。小さな弟の部屋の机にかざろうかな。',
+      choices:()=>[
+        {label:'コップの水にも毒が出るので、小さい子の手の届かない所へ。さわったら手を洗う',ef:{good:true,note:'スズランは生けた水にも毒がとける。小さい子の手が届かない所にかざった'}},
+        {label:'弟の机の上にかざる',ef:{note:'スズランを生けたコップの水を、子どもが飲んで中毒になった例がある。小さい子の近くにはかざらない'}}]},
+    {id:'deadhead',force:true,cond:(p,tl,S)=>!(S.fatal&&S.fatal.germ),dayRange:(p,tl)=>[tl.bloom1+14,tl.bloom1+17],title:'花が終わった',text:()=>'鈴のような花が、茶色くしおれてきた。',
+      choices:()=>[
+        {label:'花茎を、つけ根から切る(葉は残す)',ef:{good:true,set:{headOff:'now'},note:'花茎をつけ根から切り、種づくりで株がつかれるのを防いだ'}},
+        {label:'そのままにしておく',ef:{cap:3,set:{headOff:'never'},note:'花のあとに赤い実ができて、株がつかれた(実にも毒がある)'}}]},
+    {id:'leaves',force:true,cond:(p,tl,S)=>!(S.fatal&&S.fatal.germ),dayRange:(p,tl)=>[tl.bloom1+35,tl.bloom1+40],title:'花のない葉っぱ',text:()=>'花が終わって、大きな葉だけが残っている。',
+      choices:()=>[
+        {label:'葉は、秋に自然に枯れるまで残す',ef:{good:true,note:'葉を残し、来年の花の栄養を作らせた'}},
+        {label:'花が終わったので、葉を切ってすっきりさせる',ef:{noBloom:'葉を切ってしまい、来年の花の栄養が作れなかった',set:{leafCut:true}}}]},
+    {id:'summer',force:true,cond:(p,tl,S)=>!S.fatal&&!(S.flags.leafCut),from:[8,5],to:[8,15],yearOk:y=>y==1,weather:'sun',temp:35,title:'葉が茶色に…',text:()=>'最高気温35℃の日がつづき、スズランの葉のふちが茶色くなってきた。',
+      choices:p=>[
+        {label:'暑さで葉がいたむのは自然なこと。日よけをして、水を切らさない',ef:{good:true,note:'寒冷紗で日よけをして、水を切らさずに夏をこえた'}},
+        {label:'枯れたと思って、掘り上げて捨てる',ef:{fatal:'まだ生きていた根茎ごと、捨ててしまった'}}]},
+    {id:'snail',from:[4,10],to:[6,20],weather:'rain',title:'葉に穴が…',text:()=>'雨の日の朝、葉に穴があいて、キラキラした筋が残っている。ナメクジだ。',
+      choices:()=>[
+        {label:'夜に見回って、ナメクジをつかまえる',ef:{good:true,note:'夜の見回りでナメクジを退治した'}},
+        {label:'放っておく',ef:{q:-10,note:'ナメクジに葉や花を食べられた'}}]},
+    {id:'spread',from:[6,1],to:[7,15],yearOk:y=>y==1,cond:p=>p.pot=='g',title:'となりの花だんに',text:()=>'地下の茎がのびて、となりの花だんにまでスズランの芽が出てきた。',
+      choices:()=>[
+        {label:'広げたくない所は、スコップで地下の茎を切る(手袋をして)',ef:{good:true,note:'地下の茎を切って、広がりすぎを防いだ'}},
+        {label:'そのまま広げる',ef:{note:'スズランは地下の茎でどんどん増える。数年で花だん中に広がった'}}]},
+    {id:'dry',from:[1,10],to:[2,20],weather:'sun',temp:9,cond:p=>p.pot!='g',title:'冬の晴れつづき',text:()=>'冬の晴れの日がつづき、鉢の土がカラカラ。芽は土の中で休んでいる。',
+      choices:()=>[
+        {label:'暖かい日の午前中に、水をやる',ef:{good:true,note:'冬も、土がカラカラになる前に水をやった'}},
+        {label:'葉がないので、水はいらないはず',ef:{q:-20,note:'冬に土が乾ききって、根が弱った'}}]},
+  ],
+};
+
 const PLANTS = {
   asagao: ASAGAO,
   sakura: SAKURA,
@@ -2065,6 +2321,8 @@ const PLANTS = {
   orchid: ORCHID,
   monstera: MONSTERA,
   spraymum: SPRAYMUM,
+  lily: LILY,
+  suzuran: SUZURAN,
   more:{name:'？？？',kind:'追加予定',icon:'more',open:false},
 };
 
@@ -2085,6 +2343,8 @@ function drawIcon(cv,type){
   if(type=='orchid'){px(0,0,'#efe3cc',24,24);px(0,19,'#b08a5a',24,5);px(8,16,'#c8643b',8,4);for(let k=0;k<6;k++){px(12-k,15+k*0.3,'#3f7f3a',1,2);px(12+k,14+k*0.3,'#2f6b2f',1,2)}for(let k=0;k<12;k++)px(13+Math.max(0,k-6)*0.8,14-k+Math.max(0,k-6)*0.4,'#5a7a3a');[[17,3],[15,6],[18,8]].forEach(([x,y])=>drawPattern(px,x-2,y-1,['ww.ww','wwcww','.www.'],{w:'#ffffff',c:'#f06595'}))}
   if(type=='monstera'){px(0,0,'#efe3cc',24,24);px(0,19,'#b08a5a',24,5);px(8,16,'#c8643b',8,4);line(px,12,16,6,9,'#4a7a3a');line(px,12,16,17,6,'#4a7a3a');drawPattern(px,2,5,['g.g.g.g','gg.g.gg','g.ggg.g','.g.g.g.','..ggg..'],{g:'#3f8f4a'});drawPattern(px,14,2,['.g..g.g','gg.gg.g','ggggggg','g.ggg.g','..ggg..'],{g:'#2f7a3a'})}
   if(type=='mum'){[[-6,9],[-2,6],[2,5],[6,8]].forEach(([dx,ty])=>line(px,12,18,12+dx,ty,'#4a7a3a'));px(7,13,'#3f7f3a',3,2);px(14,12,'#2f6b2f',3,2);[[5,6,'#f06595'],[9,3,'#ffd43b'],[13,2,'#f06595'],[17,5,'#ffffff'],[11,7,'#ffd43b']].forEach(([x,y,c])=>drawPattern(px,x,y,['.p.','pyp','.p.'],{p:c,y:'#e8590c'}))}
+  if(type=='lily'){line(px,12,18,13,8,'#4a8a3a');[[10,15],[14,12],[10,10]].forEach(([x,y])=>px(x,y,'#3f8f4a',3,1));drawPattern(px,7,2,['w.....w','ww...ww','.wwwww.','..wyw..','...w...'],{w:'#ffffff',y:'#fcc419'});drawPattern(px,13,7,['w...w','ww.ww','.wyw.'],{w:'#ffffff',y:'#fcc419'})}
+  if(type=='suzuran'){for(let j=0;j<12;j++){px(8,17-j,'#3f8f4a',2,1);px(16,17-j,'#2f7a3a',2,1)}line(px,12,18,13,6,'#5a8a4a');line(px,13,6,17,8,'#5a8a4a');[[14,9],[15,11],[16,13],[13,12]].forEach(([x,y])=>px(x,y,'#ffffff',2,2))}
   if(type=='more'){px(0,0,'#e8e0cc',24,24);drawPattern(px,8,5,['.xxx.','x...x','...x.','..x..','.....','..x..'],{x:'#8a7a66'})}
 }
 const WX_NAME={sun:'はれ',cloud:'くもり',rain:'雨',storm:'台風',snow:'雪'};
