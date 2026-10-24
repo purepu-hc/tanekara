@@ -31,6 +31,7 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges}
 .card .tag{font-size:12px;display:inline-block;border:2px solid var(--ink);padding:0 6px;margin-top:4px}
 .card.open .tag{background:#9be58f}
 .card .lv{font-size:12px;color:var(--muted)}
+.cat{grid-column:1/-1;font-size:18px;margin:8px 0 0;padding-bottom:2px;border-bottom:3px solid var(--ink)}
 /* setup */
 .param{margin-bottom:12px}
 .param .lab{font-size:15px;margin-bottom:6px}
@@ -2934,6 +2935,553 @@ const LANTANA = {
   ],
 };
 
+/* ============================================================
+   野菜・お米(共通の部品)
+   ============================================================ */
+const VEG_RANK=t=>['枯れてしまった…','ほとんど収穫できなかった','少しだけ収穫できた','たくさん収穫できた！','大豊作！'][t];
+const vprog=(d,a,b)=>Math.max(0,Math.min(1,(d-a)/(b-a)));
+// 実のなる野菜(トマト・ナス・キュウリ)
+function drawFruitVeg(px,S,y0,o){
+  const T=S.tl,F=S.flags,d=S.day,dead=S.dead;
+  const H=Math.round((o.h||30)*(0.25+0.75*vprog(d,0,60))*(F.koushin&&d>=F.koushinDay?0.75+0.25*vprog(d,F.koushinDay,F.koushinDay+30):1));
+  const leaf=dead?'#a1887f':'#3f8a3a',leaf2=dead?'#8d7a6a':'#2f7a2f';
+  if(o.net){for(let x=20;x<=44;x+=4)px(x,y0-34,'#d0d0d0',1,34);for(let yy=y0-34;yy<y0;yy+=4)px(20,yy,'#d0d0d0',25,1)}
+  else if(S.p.stake!='no')px(34,y0-H-2,'#c9a66b',1,H+2);
+  const stems=o.stems||1,tips=[];
+  for(let k=0;k<stems;k++){const dx=stems==1?0:(k-(stems-1)/2)*6;line(px,32,y0,32+dx,y0-H,dead?'#8d7a6a':'#4a7a3a');tips.push(32+dx)}
+  const wild=F.wild&&d>=F.wildDay;
+  tips.forEach((tx,k)=>{for(let j=3;j<H;j+=3){const lx=32+(tx-32)*j/H,ly=y0-j;px(lx+(j%2?1:-4),ly,j%2?leaf:leaf2,4,2);if(wild)px(lx+(j%2?-5:3),ly-1,leaf,3,2)}});
+  if(dead||S.noBloom)return;
+  const n=[0,1,3,5,8][S.tier()];
+  for(let i=0;i<n;i++){
+    const tx=tips[i%stems],j=8+((i*7)%Math.max(6,H-10)),fx=32+(tx-32)*j/H+(i%2?3:-3),fy=y0-j;
+    const st=d-T.harvestFrom-i*3;
+    if(st<-20)continue;
+    if(st<0){px(fx,fy,o.flower,1,1);continue}
+    const ripe=st>12;
+    if(o.kind=='tomato')drawPattern(px,fx-1,fy,['.g.','rrr','rrr'],{g:'#2f7a2f',r:ripe?(F.crack&&i%3==0?'#a61e4d':'#e03131'):'#8fbf5a'});
+    else if(o.kind=='nasu')drawPattern(px,fx,fy,['g','p','pp','pp','pp'],{g:'#2f7a2f',p:ripe?'#5f3dc4':'#7950f2'});
+    else drawPattern(px,fx,fy,['y.','cc','cc','cc','cc','cc','c.'],{y:'#ffd43b',c:F.overgrown&&d>=F.overgrownDay&&i%2==0?'#e0c040':'#94d82d'});
+  }
+}
+// 土の中で育つ野菜(イモ・根)
+function drawRootVeg(px,S,y0,o){
+  const T=S.tl,F=S.flags,d=S.day,dead=S.dead;
+  const ground=S.p.pot!='pot';
+  const xs=o.xs||[-14,0,14];
+  // 土の断面
+  const top=y0+1,bh=ground?11:9;
+  if(ground)px(4,top,'#5d3d22',56,bh);else{px(22,top,'#5d3d22',20,bh-1)}
+  if(S.noSprout||d<T.germDay){xs.forEach(dx=>drawPattern(px,32+dx-1,top+2,['.s.','sss','.s.'],{s:o.seedCol||'#b08a5a'}));return}
+  const g=vprog(d,T.germDay,T.germDay+50),ripe=vprog(d,T.tuberFrom,T.endDay);
+  const tsz=dead?0:ripe*([0,0.4,0.6,0.85,1][S.tier()]);
+  const dug=d>=T.endDay-3&&!dead;
+  xs.forEach((dx,i)=>{
+    const x=32+dx;
+    // 地上部
+    if(!dug){
+      const lc=dead?'#a1887f':(d>=T.endDay-20&&o.yellow?'#c9b458':'#3f8a3a');
+      if(o.top=='vine'){const L=Math.round(4+g*10);for(let k=0;k<L;k++){px(x+k*(i%2?1:-1),y0-1-(k%3==0?1:0),lc);if(k%3==1)drawPattern(px,x+k*(i%2?1:-1)-1,y0-3,['gg','g.'],{g:lc})}}
+      else if(o.top=='taro'){const L=Math.round(4+g*18),big=g>0.5;px(x,y0-L,'#6a8a5a',1,L);
+        drawPattern(px,x-(big?6:4),y0-L-(big?7:4),big?['..ggggggggg..','.ggggggggggg.','ggggggggggggg','ggggggggggggg','.ggggggggggg.','..ggggggggg..','....ggggg....','......g......']:['.ggggggg.','ggggggggg','.ggggggg.','..ggggg..','....g....'],{g:lc})}
+      else if(o.top=='carrot'){const L=Math.round(2+g*9);for(let k=-2;k<=2;k++)for(let j=0;j<L;j++)if((j+k)%2==0)px(x+k*(j/L)*2,y0-1-j,lc)}
+      else if(o.top=='potato'){const L=Math.round(3+g*12);for(let j=0;j<L;j++){px(x,y0-1-j,lc);if(j%2)px(x-3,y0-1-j,lc,3,2),px(x+1,y0-1-j,lc,3,2)}
+        const md=mdOf(S.date);if(md>=505&&md<=530&&!dead)drawPattern(px,x-1,y0-L-2,['w.w','.y.'],{w:'#f3f0ff',y:'#fcc419'})}
+    }
+    // 土の中
+    if(tsz>0){
+      const cnt=o.many?Math.max(1,Math.round(tsz*4)):1;
+      for(let k=0;k<cnt;k++){
+        const ox=o.many?(k-(cnt-1)/2)*5:0, oy=o.many?(k%2)*4:0;
+        const tx=x+ox,ty=dug?y0-2:top+2+oy;
+        if(o.shape=='carrot'){const L=Math.max(2,Math.round(tsz*9));for(let j=0;j<L;j++)px(tx-(j<L-3?1:0),(dug?y0-L:top)+j,o.col,j<L-3?2:1,1);if(F.mata&&i%2==0)px(tx+2,top+L-3,o.col,1,3)}
+        else{const w=Math.max(1,Math.round(1+tsz*(o.shape=='long'?6:4))),h=Math.max(1,Math.round(1+tsz*(o.shape=='long'?2:3)));
+          const green=o.greenable&&!F.yose&&k==0&&d>=T.tuberFrom+30;
+          px(tx-w/2,green&&!dug?y0-1:ty,green?'#8fae5a':o.col,w,h)}
+      }
+    }
+  });
+}
+function vegEv(id,from,to,title,text,good,goodNote,bad,badEf,extra){return Object.assign({id,from,to,title,text:()=>text,choices:()=>[{label:good,ef:{good:true,note:goodNote}},{label:bad,ef:badEf}]},extra||{})}
+const EV_APHID=vegEv('aphid',[5,10],[7,10],'アブラムシ','新しい芽や葉の裏に、小さな虫がびっしり。アブラムシだ。','テープで取ったり、水で流したりする','アブラムシを取りのぞいた','放っておく',{q:-15,note:'アブラムシに汁を吸われ、株が弱った'});
+const EV_TYPHOON=vegEv('typhoon',[8,20],[9,25],'台風接近！','今夜、大きな台風がやってくる。','支柱をしっかり固定し、株元に土をよせる','台風の前にしっかり備えた','何もしない',{q:-20,note:'強い風で茎が折れ、葉がちぎれた'},{weather:'storm'});
+
+/* ---- ミニトマト ---- */
+const TOMATO = {
+  name:'ミニトマト', kind:'夏野菜', icon:'tomato', cat:'veg', open:true, tickMs:85, level:'★★☆ 約4か月',
+  desc:'夏の赤い実。わき芽をこまめにとって、雨にあてすぎないのがコツ。',
+  months:[5,6,7,8],
+  params:[
+    {id:'place',label:'場所',opts:[['sun','一日中日なた'],['half','半日かげ'],['shade','日かげ']]},
+    {id:'pot',label:'植える所',opts:[['g','畑'],['l','大きなプランター'],['s','小さな鉢']]},
+    {id:'rain',label:'雨',opts:[['roof','雨よけ(ビニールの屋根)をつける'],['open','雨ざらし']]},
+    {id:'water',label:'水やり',opts:[['dry','土が乾いたら株元に(やや乾きぎみ)'],['daily','乾いていなくても毎日たっぷり'],['rare','ほとんどやらない']]},
+    {id:'fert',label:'肥料',opts:[['good','植えるときに元肥、実がついたら少しずつ追肥'],['lots','チッソの多い肥料をたっぷり'],['none','なし']]},
+  ],
+  evaluate(p){
+    const r=newEval(),pot=p.pot!='g',sm=daysBetween(D(5,5),D(7,25));
+    if(p.place=='sun') r.good('一日中の日なたで、実が赤く甘くなった');
+    else if(p.place=='half'){r.bad(15,'日が足りず、実が少なかった');r.capTo(3)}
+    else r.nob('日かげでは花が落ちて、実がならなかった');
+    if(p.pot=='g') r.good('畑で根が深く張った');
+    else if(p.pot=='l') r.good('大きなプランターで、根がのびのび育った');
+    else {r.bad(20,'小さな鉢で根がつまり、実が少なかった');r.capTo(2)}
+    if(p.rain=='roof') r.good('雨よけで、実割れや病気を防いだ');
+    else {r.bad(10,'雨ざらしで、実が割れたり病気が出たりした');r.capTo(3)}
+    if(p.water=='dry') r.good('やや乾きぎみの水やりで、実がしまった');
+    else if(p.water=='daily') r.bad(15,'水が多すぎて、実が水っぽく、割れやすかった');
+    else { if(pot) r.kill(sm,'真夏に鉢がカラカラになり、水切れで枯れた'); else {r.bad(15,'水不足で、実のおしりが黒くなった(尻腐れ)');r.capTo(3)} }
+    if(p.fert=='good') r.good('元肥と、実がついてからの追肥で、次々と実がなった');
+    else if(p.fert=='lots'){r.bad(20,'チッソが多すぎて葉ばかりしげり(木ボケ)、実のおしりが黒くなった(尻腐れ)');r.capTo(2)}
+    else {r.bad(15,'肥料がなく、実が少なかった');r.capTo(3)}
+    return r;
+  },
+  timeline(){const start=D(5,5);return {start,germDay:0,harvestFrom:daysBetween(start,D(7,1)),endDay:daysBetween(start,D(8,31))}},
+  eventCount:()=>2, eventMinDay:()=>10, step:()=>3,
+  startLog:()=>'5月5日、ミニトマトの苗を植えた。',
+  container:S=>S.p.pot=='l'?'p':S.p.pot,
+  milestones(S,say){const T=S.tl,d=S.day;if(d>=T.harvestFrom-20&&!S.noBloom)say('f','黄色い花が咲いた。');if(d>=T.harvestFrom&&!S.noBloom)say('h','実が赤くなってきた！収穫だ。');if(S.noBloom&&d>=T.harvestFrom)say('n','花が咲いても、実がならない…');},
+  rank(t){return t==4?'赤い実が鈴なり！大豊作！':VEG_RANK(t)},
+  drawPlant(px,S,y0){drawFruitVeg(px,S,y0,{kind:'tomato',h:32,flower:'#ffd43b'})},
+  events:[
+    {id:'wakime',force:true,cond:(p,tl,S)=>!S.fatal,from:[6,1],to:[6,12],title:'わき芽が出てきた',text:()=>'茎と葉のつけ根から、小さな芽(わき芽)がのびてきた。',
+      choices:()=>[
+        {label:'見つけしだい、小さいうちに手でつみ取る',ef:{good:true,note:'わき芽をこまめにとり、実に栄養が集まった'}},
+        {label:'元気そうなので、全部のばす',ef:{cap:3,set:{wild:true},note:'わき芽がのびてジャングルのようになり、実が小さく少なかった'}},
+        {label:'まちがえて、てっぺんの太い茎を切る',ef:{q:-30,note:'主枝を切ってしまい、上にのびなくなった'}}]},
+    {id:'tekishin',force:true,cond:(p,tl,S)=>!S.fatal&&!S.noBloom,from:[7,10],to:[7,20],title:'支柱のてっぺん',text:()=>'茎が支柱のてっぺんまでのびた。',
+      choices:()=>[
+        {label:'茎の先をつむ(摘心)',ef:{good:true,note:'摘心で、栄養が実に集まった'}},
+        {label:'そのままのばす',ef:{q:-5,note:'茎がのびすぎて、上のほうの実が小さかった'}}]},
+    {id:'pick',force:true,cond:(p,tl,S)=>!S.fatal&&!S.noBloom,from:[7,15],to:[7,25],title:'赤くなった！',text:()=>'へたの近くまで、まっ赤に色づいた実がある。',
+      choices:()=>[
+        {label:'朝のうちに、ハサミで軸を切って収穫',ef:{good:true,note:'完熟した実を、朝のうちに収穫した'}},
+        {label:'もっと赤くなるまで、木につけておく',ef:{q:-10,set:{crack:true},note:'熟しすぎて、実が割れてしまった'}}]},
+    vegEv('rain',[6,15],[7,10],'梅雨の大雨','乾いた日のあとに、大雨がふりつづいている。','雨よけをつけ、株元をマルチでおおう','雨よけで実割れを防いだ','そのまま',{q:-10,set:{crack:true},note:'急な大雨で、実がたくさん割れた'},{weather:'rain'}),
+    EV_APHID,EV_TYPHOON,
+  ],
+};
+
+/* ---- ナス ---- */
+const NASU = {
+  name:'ナス', kind:'夏野菜', icon:'nasu', cat:'veg', open:true, tickMs:85, level:'★★☆ 約5か月',
+  desc:'水と肥料が大好きな夏野菜。夏に枝を切りもどすと、秋においしい「秋ナス」がとれる。',
+  months:[5,6,7,8,9,10],
+  params:[
+    {id:'place',label:'場所',opts:[['sun','一日中日なた'],['half','半日かげ']]},
+    {id:'pot',label:'植える所',opts:[['g','畑'],['l','大きなプランター'],['s','小さな鉢']]},
+    {id:'water',label:'水やり',opts:[['plenty','土を乾かさない(夏は朝夕・敷きわら)'],['dry','乾きぎみに'],['rare','ほとんどやらない']]},
+    {id:'fert',label:'肥料',opts:[['regular','実がなりはじめたら、半月おきに少しずつ追肥'],['once','植えるときだけ'],['none','なし']]},
+  ],
+  evaluate(p){
+    const r=newEval(),pot=p.pot!='g',sm=daysBetween(D(5,10),D(7,25));
+    if(p.place=='sun') r.good('一日中の日なたで、つやつやの実がなった');
+    else {r.bad(15,'日が足りず、実が少なかった');r.capTo(3)}
+    if(p.pot=='g') r.good('畑で根が深く張った');
+    else if(p.pot=='l') r.good('大きなプランターで育てた');
+    else {r.bad(20,'小さな鉢では水も肥料も足りなかった');r.capTo(2)}
+    if(p.water=='plenty') r.good('水を切らさず、実がやわらかく太った');
+    else if(p.water=='dry'){r.bad(20,'水が足りず、実がかたく小さい「石ナス」になった');r.capTo(3)}
+    else { if(pot) r.kill(sm,'真夏に鉢がカラカラになり、水切れで枯れた'); else {r.bad(25,'水不足で、実がかたく小さかった');r.capTo(2)} }
+    if(p.fert=='regular') r.good('半月おきの追肥で、肥料切れせずに実がなり続けた');
+    else if(p.fert=='once'){r.bad(15,'途中で肥料切れして、実の形が悪くなった');r.capTo(3)}
+    else {r.bad(20,'肥料がなく、花が落ちて実が少なかった');r.capTo(2)}
+    return r;
+  },
+  timeline(){const start=D(5,10);return {start,germDay:0,harvestFrom:daysBetween(start,D(6,25)),endDay:daysBetween(start,D(10,15))}},
+  eventCount:()=>2, eventMinDay:()=>10, step:()=>3,
+  startLog:()=>'5月10日、ナスの苗を植えた。',
+  container:S=>S.p.pot=='l'?'p':S.p.pot,
+  milestones(S,say){const T=S.tl,d=S.day,F=S.flags;if(d>=T.harvestFrom-15)say('f','むらさき色の花が咲いた。');if(d>=T.harvestFrom)say('h','つやつやのナスが収穫できた！');if(F.koushin&&d>=F.koushinDay+35)say('a','秋ナスがなりはじめた！');},
+  rank(t,S){return t==4?'秋ナスまで大豊作！':VEG_RANK(t)},
+  drawPlant(px,S,y0){drawFruitVeg(px,S,y0,{kind:'nasu',h:28,stems:S.flags.sanbon?3:1,flower:'#9775fa'})},
+  events:[
+    {id:'sanbon',force:true,cond:(p,tl,S)=>!S.fatal,from:[6,1],to:[6,10],title:'最初の花',text:()=>'最初の花(1番花)が咲いた。そのすぐ下から、わき芽が2本のびている。',
+      choices:()=>[
+        {label:'1番花の下のわき芽2本と主枝の、3本をのばす(3本仕立て)',ef:{good:true,set:{sanbon:true},note:'3本仕立てで、枝がバランスよく広がった'}},
+        {label:'わき芽を全部のばす',ef:{q:-10,set:{wild:true},note:'枝が混み合って、実に日が当たらなかった'}}]},
+    {id:'koushin',force:true,cond:(p,tl,S)=>!S.fatal&&!S.noBloom,from:[7,25],to:[8,5],title:'夏バテ？',text:()=>'真夏。株がつかれて、実の形が悪く、数も減ってきた。',
+      choices:()=>[
+        {label:'枝を半分くらいに切りもどし、株のまわりに追肥(更新剪定)',ef:{good:true,set:{koushin:true},note:'更新剪定で株が若返り、9月からおいしい秋ナスがとれた'}},
+        {label:'そのまま',ef:{cap:3,note:'つかれた株のままで、秋ナスはほとんどとれなかった'}}]},
+    vegEv('mite',[7,10],[8,31],'葉がかすれてきた','乾いた日がつづき、葉の色がかすれてきた。裏に小さな虫…ハダニだ。','葉の裏に水をかける(葉水)','葉水でハダニを追いはらった','放っておく',{q:-15,note:'ハダニが増えて、葉が白っぽく弱った'}),
+    vegEv('tento',[6,1],[7,31],'葉があみ目に','葉が、あみ目のように食べられている。星がたくさんあるテントウムシ(テントウムシダマシ)だ。','見つけしだいつかまえる','テントウムシダマシをつかまえた。(アブラムシを食べるナナホシテントウとはちがう)','放っておく',{q:-15,note:'葉をたくさん食べられた'}),
+    EV_TYPHOON,
+  ],
+};
+
+/* ---- キュウリ ---- */
+const KYURI = {
+  name:'キュウリ', kind:'夏野菜', icon:'kyuri', cat:'veg', open:true, tickMs:85, level:'★★☆ 約3か月',
+  desc:'つるをネットにからませて育てる。実はどんどん大きくなるので、毎朝の収穫がだいじ。',
+  months:[5,6,7,8],
+  params:[
+    {id:'place',label:'場所',opts:[['sun','日なた'],['half','半日かげ']]},
+    {id:'pot',label:'植える所',opts:[['g','畑'],['l','大きなプランター'],['s','小さな鉢']]},
+    {id:'net',label:'つるの育て方',opts:[['net','支柱にネットをはって、からませる'],['ground','地面にはわせる']]},
+    {id:'water',label:'水やり',opts:[['dry','土の表面が乾いたら株元にたっぷり'],['rare','ほとんどやらない']]},
+    {id:'fert',label:'肥料',opts:[['small','実がなりはじめたら、2週間に1回少しずつ'],['big','一度にたっぷり'],['none','なし']]},
+  ],
+  evaluate(p){
+    const r=newEval(),pot=p.pot!='g',sm=daysBetween(D(5,10),D(7,20));
+    if(p.place=='sun') r.good('日なたで、つるがぐんぐんのびた');
+    else {r.bad(15,'日が足りず、実が少なかった');r.capTo(3)}
+    if(p.pot=='g') r.good('畑で根が広く張った');
+    else if(p.pot=='l') r.good('大きなプランターで育てた');
+    else {r.bad(20,'小さな鉢で、すぐ水切れした');r.capTo(2)}
+    if(p.net=='net') r.good('ネットにつるがからみ、まっすぐな実がなった');
+    else {r.bad(15,'地面をはったので、実が曲がり、病気も出た');r.capTo(3)}
+    if(p.water=='dry') r.good('乾いたら株元にたっぷり。実がよく太った');
+    else { if(pot) r.kill(sm,'真夏に水切れして、枯れてしまった'); else {r.bad(20,'水不足で、実が曲がったり細くなったりした');r.capTo(3)} }
+    if(p.fert=='small') r.good('少しずつの追肥で、実がなり続けた');
+    else if(p.fert=='big') r.bad(20,'一度にたくさんの肥料で、根が傷んだ(根やけ)');
+    else {r.bad(15,'肥料がなく、途中で実がならなくなった');r.capTo(3)}
+    return r;
+  },
+  timeline(){const start=D(5,10);return {start,germDay:0,harvestFrom:daysBetween(start,D(6,10)),endDay:daysBetween(start,D(8,10))}},
+  eventCount:()=>2, eventMinDay:()=>10, step:()=>2,
+  startLog:()=>'5月10日、キュウリの苗を植えた。',
+  container:S=>S.p.pot=='l'?'p':S.p.pot,
+  milestones(S,say){const T=S.tl,d=S.day;if(d>=12)say('t','つるの先から「まきひげ」がのびて、ネットにくるくるまきついた。');if(d>=T.harvestFrom)say('h','キュウリがとれた！');},
+  rank(t){return t==4?'毎朝とれて大豊作！':VEG_RANK(t)},
+  drawPlant(px,S,y0){drawFruitVeg(px,S,y0,{kind:'kyuri',h:32,net:S.p.net=='net',flower:'#ffd43b',stems:2})},
+  events:[
+    {id:'first',force:true,cond:(p,tl,S)=>!S.fatal,from:[6,1],to:[6,8],title:'最初の実',text:()=>'最初の実がついた。まだ10cmくらい。',
+      choices:()=>[
+        {label:'株がまだ若いので、小さいうちに若どりする',ef:{good:true,note:'最初の実を若どりして、株を育てることを優先した'}},
+        {label:'大きくなるまで待つ',ef:{q:-15,note:'若い株が実を育てるのにつかれて、そのあとの実が少なかった'}}]},
+    {id:'big',force:true,cond:(p,tl,S)=>!S.fatal,from:[7,1],to:[7,10],title:'ヘチマみたい！',text:()=>'2日ほど見ないうちに、キュウリがヘチマのように大きく黄色くなっていた！',
+      choices:()=>[
+        {label:'大きくなりすぎた実はすぐとり、これからは毎朝20cmくらいで収穫する',ef:{good:true,note:'毎朝の収穫で、株がつかれずに実がなり続けた'}},
+        {label:'種がとれそうなので、そのまま育てる',ef:{cap:2,set:{overgrown:true},note:'大きな実が種に栄養を集め、ほかの実が育たなくなった'}}]},
+    vegEv('powdery',[6,20],[7,31],'葉に白い粉','葉に白い粉のようなカビ…「うどんこ病」だ。','白くなった葉を早めに切りとって捨てる','うどんこ病の葉を取り、広がりを止めた','放っておく',{q:-20,note:'うどんこ病が広がって、葉が枯れた'}),
+    vegEv('urihamushi',[5,20],[7,10],'オレンジの虫','オレンジ色の小さな虫が、葉をまるく食べている。ウリハムシだ。','見つけしだい、つかまえる(朝は動きがにぶい)','ウリハムシをつかまえた','放っておく',{q:-15,note:'葉をたくさん食べられた'}),
+    EV_APHID,
+  ],
+};
+
+/* ---- サツマイモ ---- */
+const SATSUMA = {
+  name:'サツマイモ', kind:'イモ', icon:'satsuma', cat:'veg', open:true, tickMs:85, level:'★☆☆ 約5か月',
+  desc:'苗(つる)を植えると、土の中でイモが太る。肥料はひかえめが大事。',
+  months:[5,6,7,8,9,10],
+  params:[
+    {id:'plant',label:'苗の植え方',opts:[['tip','切り口に近い2〜3節を土にうめ、先は地上に出す'],['all','苗を全部、土にうめる'],['stick','切り口だけ、ちょこんと挿す']]},
+    {id:'place',label:'場所',opts:[['sun','日なたの畑'],['shade','日かげ']]},
+    {id:'pot',label:'植える所',opts:[['g','畑'],['pot','深めのプランター']]},
+    {id:'fert',label:'肥料',opts:[['little','元肥をひかえめに、追肥はしない'],['lots','チッソの多い肥料をたっぷり']]},
+    {id:'water',label:'水やり',opts:[['start','根づくまではたっぷり、あとは乾いたら'],['never','植えたあとも水はやらない'],['daily','毎日たっぷり']]},
+  ],
+  evaluate(p){
+    const r=newEval();
+    if(p.plant=='tip') r.good('2〜3節を土にうめ、先を地上に出して、すぐに根づいた');
+    else if(p.plant=='all') r.bad(20,'先(生長点)までうめてしまい、芽が出るのがおくれた');
+    else r.bad(15,'挿し方が浅く、なかなか根づかなかった');
+    if(p.place=='sun') r.good('日なたで、葉がたくさん栄養を作った');
+    else {r.bad(20,'日かげで、イモが太らなかった');r.capTo(2)}
+    if(p.pot=='pot') r.info('深めのプランターで育てた');
+    if(p.fert=='little') r.good('肥料ひかえめで、栄養がイモに回った');
+    else r.nob('チッソが多すぎて、つるばかりのびてイモがつかない「つるぼけ」になった');
+    if(p.water=='start') r.good('根づくまでたっぷり水をやり、あとは乾いたら');
+    else if(p.water=='never') r.kill(14,'根づく前に苗がしおれて、枯れてしまった');
+    else r.bad(15,'水が多すぎて、イモが水っぽくなった');
+    return r;
+  },
+  timeline(){const start=D(5,20);return {start,germDay:0,tuberFrom:daysBetween(start,D(7,15)),endDay:daysBetween(start,D(10,20))}},
+  eventCount:()=>2, eventMinDay:()=>10, step:()=>4,
+  startLog:()=>'5月20日、サツマイモの苗(つる)を植えた。',
+  container:()=>'g',
+  milestones(S,say){const T=S.tl,d=S.day;if(d>=20)say('r','苗がしゃんと立ち上がった。根づいたみたい！');if(d>=T.tuberFrom+20)say('t',S.noBloom?'つるはしげっているけど、土の中は…？':'土の中で、イモが太りはじめている。');if(d>=T.endDay-3)say('h',S.noBloom?'ほってみたら、イモがほとんどない…':'イモほりだ！');},
+  rank(t,S){return t==1&&S.noBloom?'つるぼけで、イモがほとんどなかった':t==4?'大きなイモがごろごろ！大豊作！':VEG_RANK(t)},
+  drawPlant(px,S,y0){drawRootVeg(px,S,y0,{top:'vine',shape:'long',col:'#a61e4d',many:true,xs:[-12,8]})},
+  events:[
+    {id:'tsuru',force:true,cond:(p,tl,S)=>!S.fatal,from:[8,5],to:[8,20],title:'つるが根をはった',text:()=>'のびたつるの節から、根が出て地面にはりついている。',
+      choices:()=>[
+        {label:'今の品種は基本そのままでOK。気になる所だけ、そっと持ち上げる',ef:{good:true,note:'つるを無理に引っぱらず、必要な所だけ持ち上げた'}},
+        {label:'全部のつるを強く引っぱってはがす',ef:{q:-15,note:'つるや葉が傷んで、イモが太りにくくなった'}}]},
+    {id:'harvest',force:true,cond:(p,tl,S)=>!S.fatal,from:[10,10],to:[10,17],title:'イモほり',text:()=>'植えてから約140日。そろそろイモほりだ。',
+      choices:()=>[
+        {label:'晴れた日にほり、洗わずに日かげで乾かして、2〜3週間おく(追熟)',ef:{good:true,note:'追熟させて、甘さがぐんと増した(保存は13〜15℃)'}},
+        {label:'雨の日にほって、すぐ冷蔵庫へ',ef:{cap:3,note:'サツマイモは10℃以下で傷む(低温障害)。冷蔵庫には入れない'}},
+        {label:'もっと大きくなるよう、霜がおりるまで待つ',ef:{cap:2,note:'霜に当たって、イモが傷んでしまった'}}]},
+    vegEv('imomushi',[7,20],[9,10],'大きなイモムシ','葉がどんどん食べられている。しっぽにトゲのある、大きなイモムシ…スズメガの幼虫だ。','見つけしだい、つかまえる','大きなイモムシをつかまえた','放っておく',{q:-15,note:'葉をたくさん食べられた'}),
+    vegEv('drought',[7,25],[8,25],'日照りつづき','2週間、雨がふらない。','サツマイモは乾燥に強い。様子を見て、ひどくしおれたら水をやる','サツマイモは乾燥に強く、日照りでも元気だった','心配なので毎日たっぷり水をやる',{q:-10,note:'水が多すぎて、イモが水っぽくなった'},{weather:'sun',temp:35}),
+    EV_TYPHOON,
+  ],
+};
+
+/* ---- サトイモ ---- */
+const SATOIMO = {
+  name:'サトイモ', kind:'イモ', icon:'satoimo', cat:'veg', open:true, tickMs:85, level:'★★☆ 約6か月半',
+  desc:'大きな葉っぱが特ちょう。親イモのまわりに、子イモや孫イモがたくさんできる。乾燥が苦手。',
+  months:[4,5,6,7,8,9,10,11],
+  params:[
+    {id:'plant',label:'種イモの植え方',opts:[['up','芽を上にして、深さ10cm'],['down','芽を下にして植える'],['shallow','深さ2cmに浅く']]},
+    {id:'place',label:'場所',opts:[['sun','日なた'],['half','半日かげ']]},
+    {id:'pot',label:'植える所',opts:[['g','畑'],['pot','大きなプランター']]},
+    {id:'water',label:'水やり',opts:[['plenty','乾いたらたっぷり、夏は敷きわらで乾燥を防ぐ'],['rare','ほとんどやらない']]},
+    {id:'fert',label:'肥料',opts:[['good','土寄せのときに追肥'],['none','なし']]},
+  ],
+  evaluate(p){
+    const r=newEval(),sm=daysBetween(D(4,25),D(8,5));
+    if(p.plant=='up') r.good('芽を上にして10cmの深さに植え、元気に芽が出た');
+    else if(p.plant=='down') r.bad(20,'芽が下向きで、地上に出るまで時間がかかった');
+    else {r.bad(15,'浅植えで、子イモが育つ場所がせまかった');r.capTo(3)}
+    if(p.place=='sun') r.good('日なたで、大きな葉が育った');
+    else r.info('サトイモは半日かげでも育つ');
+    if(p.water=='plenty') r.good('乾燥に弱いサトイモ。水と敷きわらで、夏の乾燥を防いだ');
+    else { if(p.pot=='pot') r.kill(sm,'真夏にプランターがカラカラになり、枯れてしまった'); else {r.bad(30,'乾燥に弱いサトイモ。夏の水不足で子イモが育たなかった');r.capTo(2)} }
+    if(p.fert=='good') r.good('土寄せのときの追肥で、子イモが太った');
+    else {r.bad(15,'肥料がなく、イモが小さかった');r.capTo(3)}
+    return r;
+  },
+  timeline(){const start=D(4,25);return {start,germDay:25,tuberFrom:daysBetween(start,D(7,1)),endDay:daysBetween(start,D(11,5))}},
+  eventCount:()=>2, eventMinDay:()=>30, step:()=>4,
+  startLog:()=>'4月25日、サトイモの種イモを植えた。',
+  container:()=>'g',
+  milestones(S,say){const T=S.tl,d=S.day;if(d>=T.germDay)say('g','芽が出た！くるっと巻いた葉がひらいた。');if(d>=90)say('l','葉が、かさのように大きくなった。');if(d>=T.endDay-3)say('h','イモほり！親イモのまわりに、子イモがいっぱい。');},
+  rank(t){return t==4?'子イモ・孫イモがぎっしり！大豊作！':VEG_RANK(t)},
+  drawPlant(px,S,y0){drawRootVeg(px,S,y0,{top:'taro',shape:'round',col:'#8a6a4a',many:true,yellow:true,xs:[-12,10],seedCol:'#8a6a4a'})},
+  events:[
+    {id:'yose',force:true,cond:(p,tl,S)=>!(S.fatal&&S.fatal.germ),from:[6,15],to:[6,25],title:'土寄せ',text:()=>'草丈が30cmをこえた。株元に、子イモの芽が出てきている。',
+      choices:()=>[
+        {label:'株元に土をよせて、子イモの芽をうめる(追肥もいっしょに)',ef:{good:true,set:{yose:true},note:'土寄せで、子イモが太る場所ができた'}},
+        {label:'そのまま',ef:{cap:3,note:'土寄せしなかったので、子イモの芽がのびて、イモが小さかった'}}]},
+    {id:'frost',force:true,cond:(p,tl,S)=>!S.fatal,from:[10,25],to:[11,1],title:'葉が枯れはじめた',text:()=>'朝が冷えこむようになり、大きな葉が黄色くなってきた。',
+      choices:()=>[
+        {label:'霜がおりる前に、晴れた日にほり上げる',ef:{good:true,note:'寒さに弱いサトイモを、霜の前にほり上げた'}},
+        {label:'もっと太るよう、霜がおりるまで待つ',ef:{q:-20,note:'霜に当たって、イモが傷んだ'}}]},
+    vegEv('drought',[7,25],[8,25],'日照りつづき','2週間雨がふらず、大きな葉がぐったりしている。','夕方にたっぷり水をやり、株元に敷きわら','乾燥に弱いサトイモに、夕方たっぷり水をやった','イモだから大丈夫。そのまま',{q:-20,note:'乾燥で、子イモが育たなかった'},{weather:'sun',temp:35}),
+    EV_APHID,EV_TYPHOON,
+  ],
+};
+
+/* ---- ニンジン ---- */
+const NINJIN = {
+  name:'ニンジン', kind:'根菜', icon:'ninjin', cat:'veg', open:true, multiYear:false, tickMs:85, level:'★★☆ 約4か月',
+  desc:'夏に種をまいて、秋から冬に収穫。芽を出させるまでが一番むずかしい。',
+  months:[7,8,9,10,11],
+  params:[
+    {id:'month',label:'種をまく時期',opts:[[7,'7月下旬'],[9,'9月下旬']]},
+    {id:'cover',label:'土のかけ方',opts:[['thin','5mmくらい、うすく'],['thick','2cmくらい、しっかり']]},
+    {id:'water',label:'芽が出るまでの水やり',opts:[['keep','土を乾かさないよう、ときどき水やり'],['dry','乾いたら、たまにやる']]},
+    {id:'compost',label:'たい肥',opts:[['ripe','よく熟した(完熟)たい肥を、早めに混ぜておく'],['raw','まだ熟していないたい肥を、まく直前に混ぜる']]},
+    {id:'place',label:'場所',opts:[['sun','日なたの畑'],['shade','日かげ']]},
+  ],
+  evaluate(p){
+    const r=newEval(),m=+p.month;
+    if(m==7) r.good('7月下旬にまいて、秋〜冬にじっくり太った');
+    else {r.bad(20,'まくのがおそく、冬までに太りきらなかった');r.capTo(2)}
+    if(p.cover=='thin') r.good('ニンジンの種は光が好き。うすく土をかけて、そろって芽が出た');
+    else r.kill(20,'土を厚くかけすぎて、芽が出なかった(ニンジンの種は光が必要)',true);
+    if(p.water=='keep') r.good('芽が出るまで土を乾かさず、5〜10日で芽がそろった');
+    else r.kill(20,'ニンジンの種は水を吸う力が弱い。土が乾いて芽が出なかった',true);
+    if(p.compost=='ripe') r.good('完熟たい肥で、まっすぐな根が育った');
+    else {r.bad(15,'未熟なたい肥のせいで、根が二股に分かれた(股根)');r.capTo(3)}
+    if(p.place=='sun') r.good('日なたで、根がよく太った');
+    else {r.bad(20,'日かげで、根が細かった');r.capTo(2)}
+    return r;
+  },
+  timeline(p){const m=+p.month||7,start=m==7?D(7,25):D(9,25);return {start,germDay:8,tuberFrom:daysBetween(start,m==7?D(9,10):D(11,1)),endDay:daysBetween(start,m==7?D(11,20):D(12,25))}},
+  init(S){if(S.p.compost=='raw')S.flags.mata=true},
+  eventCount:()=>2, eventMinDay:()=>12, step:()=>3,
+  startLog:S=>`${S.tl.start.getMonth()+1}月${S.tl.start.getDate()}日、ニンジンの種をまいた。`,
+  container:()=>'g',
+  milestones(S,say){const T=S.tl,d=S.day;if(S.noSprout){if(d>=T.germDay+5)say('ng','芽が出てこない…');return}if(d>=T.germDay)say('g','ふたばが出た！細くてかわいい。');if(d>=T.endDay-3)say('h','ニンジンを引きぬいた！');},
+  rank(t){return t==4?'太くてまっすぐなニンジンが大豊作！':VEG_RANK(t)},
+  drawPlant(px,S,y0){drawRootVeg(px,S,y0,{top:'carrot',shape:'carrot',col:'#f76707',xs:S.flags.mabiki?[-16,-8,0,8,16]:[-18,-14,-10,-6,-2,2,6,10,14,18],seedCol:'#c9a26b'})},
+  events:[
+    {id:'mabiki',force:true,cond:(p,tl,S)=>!(S.fatal&&S.fatal.germ),dayRange:(p,tl)=>[tl.germDay+12,tl.germDay+18],title:'間引き',text:()=>'芽がびっしり。となりどうしの葉が重なっている。',
+      choices:()=>[
+        {label:'葉が重ならないように間引き、最後は10cmおきにする(何回かに分けて)',ef:{good:true,set:{mabiki:true},note:'間引きで、1本1本の根が太れる場所ができた'}},
+        {label:'もったいないので、全部そのまま',ef:{cap:2,note:'ぎゅうぎゅうのままで、細いニンジンばかりになった'}}]},
+    {id:'kata',force:true,cond:(p,tl,S)=>!S.fatal,dayRange:(p,tl)=>[tl.tuberFrom+20,tl.tuberFrom+30],title:'肩が緑色',text:()=>'ニンジンの頭(肩)が土から出て、緑色になっている。',
+      choices:()=>[
+        {label:'株元に土をよせて、肩をかくす(土寄せ)',ef:{good:true,note:'土寄せで、肩が緑になるのを防いだ'}},
+        {label:'そのまま',ef:{q:-10,note:'肩が緑色になって、かたくなった'}}]},
+    {id:'kiageha',from:[8,10],to:[9,30],title:'しましまのイモムシ',text:()=>'葉に、黄緑と黒のしましまのイモムシがいる。キアゲハの幼虫だ。',
+      choices:()=>[
+        {label:'つかまえて、虫かごで育ててチョウにする(エサはニンジンの葉)',ef:{good:true,note:'キアゲハの幼虫を虫かごに引っこし。葉も守れて、チョウも観察できた'}},
+        {label:'放っておく',ef:{q:-15,note:'ニンジンの葉を食べつくされた'}}]},
+    vegEv('rain',[9,1],[10,10],'長雨','雨がつづいて、畑に水がたまっている。','みぞをほって、水はけをよくする','水はけをよくして、根ぐされを防いだ','そのまま',{q:-15,note:'水がたまって、根が割れたりくさったりした'},{weather:'rain'}),
+  ],
+};
+
+/* ---- レタス ---- */
+const LETTUCE = {
+  name:'レタス', kind:'葉野菜', icon:'lettuce', cat:'veg', open:true, tickMs:85, level:'★★☆ 約2か月半',
+  desc:'涼しい季節が好きな野菜。暑さで「とう立ち」すると、苦くなって巻かなくなる。',
+  months:[8,9,10,11],
+  params:[
+    {id:'sow',label:'種まき',opts:[['sep','9月上旬、うすく土をかけてまく'],['aug','8月の暑い日に、そのまままく'],['fridge','8月、種を水にひたして冷蔵庫で1〜2日冷やしてからまく']]},
+    {id:'cover',label:'土のかけ方',opts:[['thin','ごくうすく(光が必要な種)'],['thick','1cmしっかり']]},
+    {id:'night',label:'夜の明るさ',opts:[['dark','夜は暗い畑'],['light','街灯のそば']]},
+    {id:'fert',label:'肥料',opts:[['plenty','元肥を多めに、植えて2〜3週間後と、巻きはじめに追肥'],['none','なし']]},
+    {id:'mulch',label:'株元',opts:[['mulch','マルチでおおい、泥はねを防ぐ'],['none','そのまま']]},
+  ],
+  evaluate(p){
+    const r=newEval();
+    if(p.sow=='sep') r.good('涼しくなった9月にまいて、そろって芽が出た(発芽は15〜20℃が好き)');
+    else if(p.sow=='aug') r.kill(15,'25℃以上で、種が休んでしまい芽が出なかった',true);
+    else r.good('冷蔵庫で冷やして種を目覚めさせ、暑い時期でも芽が出た');
+    if(p.cover=='thin') r.good('光が好きな種なので、ごくうすく土をかけた');
+    else r.kill(15,'土を厚くかけすぎて、芽が出なかった(レタスの種は光が必要)',true);
+    if(p.night=='dark') r.good('夜は暗い畑で、ゆっくり葉が巻いた');
+    else {r.bad(20,'街灯の明かりで「とう立ち」しやすくなり、葉が巻ききらなかった');r.capTo(2)}
+    if(p.fert=='plenty') r.good('肥料をしっかりあげて、玉がよく巻いた');
+    else {r.bad(20,'肥料が足りず、玉が巻かなかった');r.capTo(2)}
+    if(p.mulch=='mulch') r.good('マルチで泥はねを防ぎ、病気が出なかった');
+    else {r.bad(15,'泥はねで、葉がくさる病気(軟腐病)が出た');r.capTo(3)}
+    return r;
+  },
+  timeline(p){const start=p.sow=='sep'?D(9,5):D(8,20);return {start,germDay:5,endDay:daysBetween(start,D(11,25)),headFrom:daysBetween(start,D(10,25))}},
+  eventCount:()=>2, eventMinDay:()=>10, step:()=>2,
+  startLog:S=>`${S.tl.start.getMonth()+1}月${S.tl.start.getDate()}日、レタスの種をまいた。`,
+  container:()=>'g',
+  milestones(S,say){const T=S.tl,d=S.day;if(S.noSprout){if(d>=T.germDay+5)say('ng','芽が出てこない…');return}if(d>=T.germDay)say('g','小さな芽が出た！');if(d>=T.headFrom)say('hd',S.flags.bolt?'まん中の茎が、にょきっとのびてきた…':'まん中の葉が、くるっと巻きはじめた。');if(d>=T.endDay-3)say('h','レタスを収穫した！');},
+  rank(t){return t==4?'ずっしり重いレタスが大豊作！':t==1?'巻かずに、苦いレタスになった':VEG_RANK(t)},
+  drawPlant(px,S,y0){
+    const T=S.tl,F=S.flags,d=S.day,dead=S.dead;
+    const xs=[-14,0,14];
+    if(S.noSprout||d<T.germDay){xs.forEach(dx=>px(32+dx,y0+1,'#8a6a4a'));return}
+    const g=vprog(d,T.germDay,T.endDay),R=Math.round(2+g*7*(0.6+0.1*S.tier()));
+    xs.forEach(dx=>{const x=32+dx;
+      for(let a=0;a<10;a++){const ang=Math.PI+a/9*Math.PI;for(let k=1;k<=R;k++)px(x+Math.cos(ang)*k,y0-1+Math.sin(ang)*k*0.8,dead?'#a1887f':a%2?'#69db7c':'#40c057')}
+      if(d>=T.headFrom&&!dead){if(F.bolt){px(x,y0-R-10,'#40c057',1,10);px(x-1,y0-R-11,'#ffd43b',3,1)}else{const h=Math.round(vprog(d,T.headFrom,T.endDay)*([0,1,2,4,5][S.tier()]));if(h>0)drawPattern(px,x-h,y0-h*1.6-1,Array.from({length:Math.ceil(h*1.6)},()=>'b'.repeat(h*2+1)),{b:'#b2f2bb'})}}
+    });
+  },
+  events:[
+    {id:'heat',force:true,cond:(p,tl,S)=>!(S.fatal&&S.fatal.germ),from:[9,10],to:[9,20],weather:'sun',temp:33,title:'残暑',text:()=>'9月なのに、最高気温33℃。苗がぐったりしている。',
+      choices:()=>[
+        {label:'日よけのネット(寒冷紗)をかけて、涼しくする',ef:{good:true,note:'残暑のあいだ日よけで涼しくし、とう立ちを防いだ'}},
+        {label:'そのまま',ef:{q:-15,set:{bolt:true},cap:2,note:'暑さで「とう立ち」が始まり、苦くなった'}}]},
+    {id:'harvest',force:true,cond:(p,tl,S)=>!S.fatal,from:[11,15],to:[11,20],title:'収穫どき？',text:()=>'玉の上をおさえると、かたくしまっている。',
+      choices:()=>[
+        {label:'朝のうちに株元を切って収穫。切り口の白いしるはふき取る',ef:{good:true,note:'朝どりの、みずみずしいレタスを収穫した'}},
+        {label:'もっと大きくなるまで待つ',ef:{q:-10,note:'待ちすぎて、玉が割れたり、苦くなったりした'}}]},
+    vegEv('slug',[9,20],[11,10],'葉に穴が…','雨の朝、葉に穴があいて、キラキラした筋が残っている。ナメクジだ。','夜に見回って、つかまえる','ナメクジを退治した','放っておく',{q:-10,note:'葉を食べられて、穴だらけになった'},{weather:'rain'}),
+    vegEv('yotou',[9,15],[10,31],'夜に食べられる','朝になると、葉がたくさん食べられている。昼は土にかくれる「ヨトウムシ」だ。','株元の土をそっとほって、さがしてつかまえる','土の中のヨトウムシを見つけてつかまえた','放っておく',{q:-15,note:'夜のあいだに、葉をたくさん食べられた'}),
+  ],
+};
+
+/* ---- ジャガイモ ---- */
+const JAGA = {
+  name:'ジャガイモ', kind:'イモ', icon:'jaga', cat:'veg', open:true, tickMs:85, level:'★☆☆ 約3か月半',
+  desc:'春に種イモを植えると、初夏にイモがごろごろ。緑色になったイモには毒があるので注意。',
+  months:[3,4,5,6],
+  params:[
+    {id:'seed',label:'種イモ',opts:[['seed','お店の「種イモ」(病気の検査ずみ)'],['super','スーパーで買った食べるジャガイモ']]},
+    {id:'cut',label:'種イモの準備',opts:[['dry','40〜60gに切り分け、切り口を1〜2日、日かげで乾かす'],['wet','切ってすぐ植える']]},
+    {id:'plant',label:'植え方',opts:[['deep','芽を上にして、深さ10cm'],['shallow','深さ3cmに浅く']]},
+    {id:'place',label:'場所',opts:[['sun','日なたの畑'],['pot','深めのプランター']]},
+  ],
+  evaluate(p){
+    const r=newEval();
+    if(p.seed=='seed') r.good('検査ずみの種イモで、病気なく育った');
+    else {r.bad(20,'食べる用のイモは芽が出にくい処理がされていたり、病気をもっていたりして、育ちが悪かった');r.capTo(2)}
+    if(p.cut=='dry') r.good('切り口を乾かしてから植え、くさらなかった');
+    else {r.bad(20,'切り口から土の中でくさって、芽が少なかった');r.capTo(3)}
+    if(p.plant=='deep') r.good('10cmの深さに植え、イモがしっかりできた');
+    else {r.bad(10,'浅植えで、イモが土から顔を出しやすかった');r.capTo(3)}
+    if(p.place=='pot') r.info('深めのプランターで育てた');
+    return r;
+  },
+  timeline(){const start=D(3,5);return {start,germDay:25,tuberFrom:daysBetween(start,D(5,1)),endDay:daysBetween(start,D(6,20))}},
+  eventCount:()=>1, eventMinDay:()=>30, step:()=>3,
+  startLog:()=>'3月5日、ジャガイモの種イモを植えた。',
+  container:()=>'g',
+  milestones(S,say){const T=S.tl,d=S.day;if(d>=T.germDay)say('g','芽が出てきた！');if(mdOf(S.date)>=505&&!S.dead)say('f','白い花が咲いた。ジャガイモはナスの仲間。');if(d>=T.endDay-20)say('y','葉が黄色くなって、たおれてきた。');if(d>=T.endDay-3)say('h','イモほりだ！');},
+  rank(t){return t==4?'大きなイモがごろごろ！大豊作！':VEG_RANK(t)},
+  extraNotes(S){return [{t:'info',text:'緑色になったイモや、芽が出たイモには毒(ソラニン)が多い。食べるときは、芽と緑の部分をしっかり取る'}]},
+  drawPlant(px,S,y0){drawRootVeg(px,S,y0,{top:'potato',shape:'round',col:'#d9b27a',many:true,yellow:true,greenable:true,xs:[-12,10],seedCol:'#c9a26b'})},
+  events:[
+    {id:'frost',force:true,cond:(p,tl,S)=>!(S.fatal&&S.fatal.germ),from:[4,5],to:[4,12],weather:'sun',temp:8,title:'遅霜',text:()=>'芽が出たばかりなのに、今夜は霜がおりそう。',
+      choices:()=>[
+        {label:'不織布をかけて、芽を守る',ef:{good:true,note:'不織布で、遅霜から芽を守った'}},
+        {label:'そのまま',ef:{q:-15,note:'霜で芽が黒くなった(また新しい芽が出た)'}}]},
+    {id:'mekaki',force:true,cond:(p,tl,S)=>!(S.fatal&&S.fatal.germ),from:[4,15],to:[4,22],title:'芽がいっぱい',text:()=>'1つの種イモから、芽が5本も6本も出ている。',
+      choices:()=>[
+        {label:'太くて元気な芽を2〜3本残して、ほかはつみ取る(芽かき)',ef:{good:true,note:'芽かきで、1つ1つのイモが大きくなった'}},
+        {label:'全部のばす',ef:{cap:3,note:'芽が多すぎて栄養が分かれ、小さなイモばかりになった'}}]},
+    {id:'yose',force:true,cond:(p,tl,S)=>!(S.fatal&&S.fatal.germ),from:[5,1],to:[5,10],title:'土寄せ',text:()=>'草丈が20cmくらいになった。株元にイモが顔を出しそう。',
+      choices:()=>[
+        {label:'株元に土をよせる(花が咲くころにもう1回)',ef:{good:true,set:{yose:true},note:'土寄せで、イモが光に当たって緑になるのを防いだ'}},
+        {label:'そのまま',ef:{cap:3,note:'土から出たイモが緑色になった。緑のイモには毒(ソラニン)が増える'}}]},
+    vegEv('tento',[5,1],[6,10],'葉があみ目に','葉が、あみ目のように食べられている。星がたくさんあるテントウムシ(テントウムシダマシ)だ。','見つけしだいつかまえる','テントウムシダマシをつかまえた','放っておく',{q:-15,note:'葉をたくさん食べられた'}),
+    vegEv('rain',[5,20],[6,15],'長雨','雨がつづいて、畑に水がたまっている。','みぞをほって、水はけをよくする','水はけをよくして、イモがくさるのを防いだ','そのまま',{q:-15,note:'水がたまって、イモがくさった'},{weather:'rain'}),
+  ],
+};
+
+/* ---- お米(バケツ稲) ---- */
+const RICE = {
+  name:'お米(バケツ稲)', kind:'イネ', icon:'rice', cat:'veg', open:true, tickMs:85, level:'★★★ 約6か月',
+  desc:'バケツを小さな田んぼにして、お米を育てる。種もみから、お茶わん1杯分のお米をめざそう。',
+  months:[4,5,6,7,8,9,10],
+  params:[
+    {id:'select',label:'種もみえらび',opts:[['salt','塩水に入れて、しずんだ重い種もみをえらぶ(塩水選)'],['all','全部使う']]},
+    {id:'soak',label:'芽出し',opts:[['soak','水に1週間ほどつけ、毎日水をかえる'],['none','水につけずに、そのまままく']]},
+    {id:'place',label:'バケツの置き場所',opts:[['sun','一日中日が当たる所'],['shade','日かげ']]},
+    {id:'water',label:'水の管理',opts:[['keep','根づいたら、苗の高さの1/3くらい水をはり、へったら足す'],['dry','水がなくなっても、気にしない']]},
+    {id:'fert',label:'肥料',opts:[['little','土に少しだけ'],['lots','たっぷり']]},
+  ],
+  evaluate(p){
+    const r=newEval(),sm=daysBetween(D(4,25),D(8,1));
+    if(p.select=='salt') r.good('塩水選で、中身のつまった種もみだけをえらんだ');
+    else {r.bad(10,'軽い種もみもまざって、芽がそろわなかった');r.capTo(3)}
+    if(p.soak=='soak') r.good('水につけて芽出しをし、そろって芽が出た');
+    else {r.bad(15,'芽出しをしなかったので、芽が出るのがおそく、そろわなかった');r.capTo(3)}
+    if(p.place=='sun') r.good('一日中の日光で、稲がぐんぐん育った');
+    else {r.bad(25,'日かげでは稲がひょろひょろで、穂が少なかった');r.capTo(2)}
+    if(p.water=='keep') r.good('水を切らさず、田んぼのように育てた');
+    else r.kill(sm,'真夏にバケツの水がなくなり、土がひび割れて稲が枯れた');
+    if(p.fert=='little') r.good('肥料は少しだけ。稲がしっかり育った');
+    else {r.bad(15,'肥料が多すぎて背がのびすぎ、穂の重さでたおれた');r.capTo(3)}
+    return r;
+  },
+  timeline(){const start=D(4,25);return {start,germDay:10,taue:daysBetween(start,D(5,30)),headDay:daysBetween(start,D(8,20)),goldDay:daysBetween(start,D(9,25)),endDay:daysBetween(start,D(10,25))}},
+  eventCount:()=>1, eventMinDay:()=>40, step:()=>4,
+  startLog:()=>'4月25日、種もみを手に入れた。お米づくりのスタート！',
+  container:()=>'bucket',
+  milestones(S,say){const T=S.tl,d=S.day;if(d>=T.germDay)say('g','種もみから、白い芽と根が出た！');if(d>=T.taue)say('t','苗をバケツに植えかえた(田植え)。');if(d>=T.headDay)say('hd',S.noBloom?'穂が出てこない…':'穂が出て、白い小さな花が咲いた！');if(d>=T.goldDay)say('gd','穂が黄金色になって、重くたれてきた。');if(d>=T.endDay-3)say('h','稲かり！干してから、もみをはずしてお米にした。');},
+  rank(t){return ['枯れてしまった…','お米はほとんどとれなかった','お米が少しだけとれた','お茶わん半分くらいのお米がとれた！','お茶わん1杯分のお米がとれた！'][t]},
+  drawPlant(px,S,y0){
+    const T=S.tl,F=S.flags,d=S.day,dead=S.dead;
+    if(d<T.taue){if(d>=T.germDay){px(30,y0-2,'#8fbf5a',1,2);px(33,y0-3,'#8fbf5a',1,3)}return}
+    const H=Math.round(6+20*vprog(d,T.taue,T.headDay));
+    const n=Math.round(3+5*vprog(d,T.taue,daysBetween(T.start,D(7,15))));
+    const gold=d>=T.goldDay, cut=d>=T.endDay-3;
+    const lc=dead?'#a1887f':gold?'#c9b458':'#40a040';
+    for(let i=0;i<n;i++){const dx=(i-n/2)*1.5,lean=(i-n/2)*0.4,h=cut?3:H-(i%3);line(px,32+dx/2,y0,32+dx+lean*h/6,y0-h,lc)}
+    if(cut){for(let k=0;k<3;k++)px(46+k*3,y0+8,'#e0b040',2,5);return}
+    if(dead||S.noBloom||d<T.headDay)return;
+    const ears=[0,1,2,4,6][S.tier()];
+    for(let i=0;i<ears;i++){const dx=(i-ears/2)*3,ex=32+dx,ey=y0-H;
+      const col=gold?'#e0b040':'#b2d27a';
+      for(let k=0;k<5;k++)px(ex+(gold?k*0.6:0)+(i%2?1:-1)*k*0.3,ey+(gold?k:-k),col);
+      if(F.suzume&&d>=F.suzumeDay&&i%2==0)px(ex,ey+2,'#8a6a4a',1,1)}
+  },
+  events:[
+    {id:'taue',force:true,cond:(p,tl,S)=>!S.fatal||S.fatal.day>tl.taue+5,from:[5,28],to:[6,5],title:'田植え',text:()=>'苗の葉が3〜4枚になった。バケツの田んぼに植えかえよう。',
+      choices:()=>[
+        {label:'茎が太い元気な苗を3〜5本まとめて1株にし、まん中に植える',ef:{good:true,note:'元気な苗を3〜5本まとめて植えた'}},
+        {label:'苗を全部、ぎっしり植える',ef:{q:-15,note:'苗がぎゅうぎゅうで、1本1本が細くなった'}}]},
+    {id:'nakaboshi',force:true,cond:(p,tl,S)=>!S.fatal,from:[7,10],to:[7,20],title:'中干し',text:()=>'稲の背が50cmくらい、茎が20本ほどにふえた。',
+      choices:()=>[
+        {label:'水をぬいて、土にひびが入るまで数日乾かす(中干し)',ef:{good:true,set:{dryBucket:true},note:'中干しで根が深くのび、穂をつくる準備ができた'}},
+        {label:'ずっと水をはったまま',ef:{cap:3,note:'中干しをしなかったので、茎がふえすぎ、根も弱くて穂が小さかった'}}]},
+    {id:'suzume',force:true,cond:(p,tl,S)=>!S.fatal&&!S.noBloom,from:[9,1],to:[9,10],title:'スズメが来た！',text:()=>'穂にお米の実が入ってきた。スズメが何羽も、穂をつついている！',
+      choices:()=>[
+        {label:'バケツに防鳥ネットをかける',ef:{good:true,note:'ネットで、スズメからお米を守った'}},
+        {label:'そのまま',ef:{cap:2,set:{suzume:true},note:'スズメにお米をたくさん食べられた'}}]},
+    {id:'harvest',force:true,cond:(p,tl,S)=>!S.fatal&&!S.noBloom,from:[10,5],to:[10,12],title:'稲かりの準備',text:()=>'穂が黄金色になって、重くたれている。',
+      choices:()=>[
+        {label:'稲かりの10日前に水をぬき、土が乾いてからかり取って干す',ef:{good:true,note:'水をぬいて乾かしてから稲かり。干して、もみをはずしてお米にした'}},
+        {label:'まだ青い穂もあるけど、今すぐかる',ef:{cap:3,note:'青い穂は、中身が入っていなかった'}}]},
+    vegEv('unka',[6,15],[8,15],'小さな虫','稲の根元に、小さな虫がたくさん。ウンカだ。','水に食用油を数滴たらし、稲をゆすって虫を落とす','ウンカを油の膜に落として退治した','放っておく',{q:-20,note:'ウンカに汁を吸われて、稲が弱った'}),
+    vegEv('typhoon',[8,25],[9,25],'台風接近！','今夜、大きな台風がやってくる。','バケツを家のかげに移し、稲を軽くたばねる','台風の前に、稲がたおれないよう備えた','何もしない',{q:-20,note:'強い風で稲がたおれた'},{weather:'storm'}),
+  ],
+};
+
 const PLANTS = {
   asagao: ASAGAO,
   sakura: SAKURA,
@@ -2956,6 +3504,15 @@ const PLANTS = {
   zephyr: ZEPHYR,
   daisy: DAISY,
   lantana: LANTANA,
+  tomato: TOMATO,
+  nasu: NASU,
+  kyuri: KYURI,
+  satsuma: SATSUMA,
+  satoimo: SATOIMO,
+  ninjin: NINJIN,
+  lettuce: LETTUCE,
+  jaga: JAGA,
+  rice: RICE,
   more:{name:'？？？',kind:'追加予定',icon:'more',open:false},
 };
 
@@ -2985,6 +3542,16 @@ function drawIcon(cv,type){
   if(type=='zephyr'){[[6,0],[13,1],[19,0]].forEach(([x,k])=>{for(let j=0;j<9;j++){px(x-2+j*0.15,18-j,'#3f8f4a');px(x+2-j*0.15,18-j,'#2f7a3a')}px(x,9,'#4a8a4a',1,9);drawPattern(px,x-2,5,['a.a.a','.aya.','a.a.a'],{a:k?'#f783ac':'#ffffff',y:'#fcc419'})})}
   if(type=='daisy'){for(let a=0;a<8;a++){const g=a/8*Math.PI*2;for(let k=1;k<6;k++)px(12+Math.cos(g)*k*1.4,17+Math.sin(g)*k*0.4,a%2?'#4f9a4a':'#3f8a3a',2,1)}[[6,'#f783ac'],[12,'#ffffff'],[18,'#e64980']].forEach(([x,c],i)=>{px(x,10,'#3f8a3a',1,7);drawPattern(px,x-2,5+(i%2)*2,['.ppp.','ppppp','ppypp','ppppp','.ppp.'],{p:c,y:'#fcc419'})})}
   if(type=='lantana'){for(let x=3;x<=21;x++)for(let y=8;y<=18;y++)if(((x-12)/9)**2+((y-13)/5.5)**2<=1&&hash(x,y)<.75)px(x,y,['#2f6b2f','#3f8a3a'][Math.floor(hash(y,x)*2)]);[[6,9,'#ffd43b','#ffe066'],[12,7,'#ff922b','#ffd43b'],[17,10,'#f76707','#ff922b'],[10,12,'#e64980','#f06595'],[15,14,'#ffd43b','#ff922b']].forEach(([x,y,c,o])=>drawPattern(px,x-1,y-1,['.o.','oyo','.o.'],{o,y:c}))}
+  if(type=='tomato'){px(12,4,'#4a7a3a',1,15);px(14,3,'#c9a66b',1,16);[[8,6],[14,9],[9,12],[15,14]].forEach(([x,y])=>px(x,y,'#3f8a3a',4,2));[[6,9],[16,11],[8,15]].forEach(([x,y])=>drawPattern(px,x,y,['.g.','rrr','rrr'],{g:'#2f7a2f',r:'#e03131'}))}
+  if(type=='nasu'){px(12,4,'#4a7a3a',1,15);[[7,6],[14,8],[8,12]].forEach(([x,y])=>px(x,y,'#3f8a3a',4,2));[[9,9],[16,11]].forEach(([x,y])=>drawPattern(px,x,y,['.g','pp','ppp','ppp','.pp'],{g:'#2f7a2f',p:'#5f3dc4'}))}
+  if(type=='kyuri'){for(let x=4;x<=20;x+=4)px(x,2,'#d0d0d0',1,17);for(let y=2;y<19;y+=4)px(4,y,'#d0d0d0',17,1);line(px,10,18,9,4,'#4a7a3a');line(px,14,18,15,4,'#4a7a3a');[[6,6],[14,9],[9,12]].forEach(([x,y])=>px(x,y,'#3f8a3a',4,2));[[8,8],[16,11]].forEach(([x,y])=>drawPattern(px,x,y,['y','c','c','c','c','c'],{y:'#ffd43b',c:'#2b8a3e'}))}
+  if(type=='satsuma'||type=='satoimo'||type=='jaga'||type=='ninjin'){px(0,0,'#bfe6ff',24,24);px(0,12,'#5d3d22',24,12);px(0,12,'#5fae4a',24,1);
+    if(type=='satsuma'){for(let k=0;k<20;k++)px(2+k,11-(k%4==0?1:0),'#3f8a3a');[[4,15],[12,17],[17,14]].forEach(([x,y])=>px(x,y,'#a61e4d',5,3))}
+    if(type=='satoimo'){px(11,4,'#6a8a5a',1,8);drawPattern(px,6,1,['.ggggggggg.','ggggggggggg','.ggggggggg.','...ggggg...'],{g:'#3f8a3a'});[[8,15],[13,15],[10,18],[15,18]].forEach(([x,y])=>px(x,y,'#8a6a4a',3,3))}
+    if(type=='jaga'){for(let j=0;j<8;j++){px(11,11-j,'#3f8a3a');if(j%2)px(9,11-j,'#3f8a3a',2,1),px(12,11-j,'#3f8a3a',2,1)}drawPattern(px,10,2,['w.w','.y.'],{w:'#f3f0ff',y:'#fcc419'});[[6,15],[11,17],[16,15]].forEach(([x,y])=>px(x,y,'#d9b27a',4,3))}
+    if(type=='ninjin'){for(let k=-3;k<=3;k++)for(let j=0;j<8;j++)if((j+k)%2==0)px(12+k*(j/8)*2,11-j,'#3f8a3a');for(let j=0;j<10;j++)px(11+(j<7?0:1),13+j,'#f76707',j<7?3:1,1)}}
+  if(type=='lettuce'){for(let a=0;a<12;a++){const g=Math.PI+a/11*Math.PI;for(let k=1;k<10;k++)px(12+Math.cos(g)*k,18+Math.sin(g)*k*0.8,a%2?'#69db7c':'#40c057')}drawPattern(px,8,9,['.bbbbbbb.','bbbbbbbbb','bbbbbbbbb','bbbbbbbbb','.bbbbbbb.'],{b:'#b2f2bb'})}
+  if(type=='rice'){for(let j=0;j<12;j++){const w=16-Math.floor(j/3);px(12-w/2,12+j,j<1?'#364fc7':'#4c6ef5',w,1)}px(5,12,'#74c0fc',14,2);for(let i=0;i<7;i++)line(px,12,13,6+i*2,3+(i%2),'#c9b458');[[6,3],[10,2],[14,2],[18,3]].forEach(([x,y])=>{for(let k=0;k<4;k++)px(x+k*0.5,y+k,'#e0b040')})}
   if(type=='more'){px(0,0,'#e8e0cc',24,24);drawPattern(px,8,5,['.xxx.','x...x','...x.','..x..','.....','..x..'],{x:'#8a7a66'})}
 }
 const WX_NAME={sun:'はれ',cloud:'くもり',rain:'雨',storm:'台風',snow:'雪'};
@@ -3008,6 +3575,12 @@ function drawScene(cv,S){
   if(S.wx=='rain'||S.wx=='storm'){for(let i=0;i<30;i++)px(Math.random()*64,Math.random()*60,'#dfe9ff',1,3)}
   if(S.wx=='snow'){for(let i=0;i<26;i++)px(Math.random()*64,Math.random()*60,'#ffffff',1,1)}
   const cont=pl.container(S);let y0;
+  if(cont=='bucket'){
+    px(0,66,'#d9c7a3',64,6);px(0,66,'#bfa982',64,1);
+    for(let j=0;j<14;j++){const w=26-Math.floor(j/3);px(32-w/2,52+j,j<1?'#364fc7':'#4c6ef5',w,1)}
+    px(21,52,S.flags.dryBucket&&S.day>=S.flags.dryBucketDay?'#6a4a2a':'#74c0fc',22,2);
+    pl.drawPlant(px,S,53);return;
+  }
   if(cont=='bonsai'){
     px(0,62,'#8a6a42',64,3);px(4,65,'#6a4a2a',3,7);px(57,65,'#6a4a2a',3,7);
     px(18,56,'#5a3a2a',28,6);px(17,56,'#6a4a3a',30,1);px(20,62,'#4a2a1a',3,1);px(41,62,'#4a2a1a',3,1);
@@ -3049,14 +3622,16 @@ const PL=()=>PLANTS[plantKey];
 
 function buildTitle(){
   const g=$('plantGrid');g.innerHTML='';
-  Object.entries(PLANTS).forEach(([k,pl])=>{
+  const ents=Object.entries(PLANTS);
+  const groups=[['花・木',ents.filter(([k,pl])=>pl.open&&pl.cat!='veg')],['野菜・お米',ents.filter(([k,pl])=>pl.cat=='veg')],['',ents.filter(([k,pl])=>!pl.open)]];
+  groups.forEach(([title,list])=>{if(!list.length)return;if(title)g.insertAdjacentHTML('beforeend',`<div class="cat">${title}</div>`);list.forEach(([k,pl])=>{
     const c=document.createElement('div');c.className='card '+(pl.open?'open':'locked');
     const cv=document.createElement('canvas');cv.width=24;cv.height=24;drawIcon(cv,pl.icon);
     c.append(cv);
     c.insertAdjacentHTML('beforeend',`<div>${pl.name}</div><div style="font-size:12px;color:var(--muted)">${pl.kind}</div>${pl.level?`<div class="lv">${pl.level}</div>`:''}<span class="tag">${pl.open?'あそべる':'準備中'}</span>`);
     if(pl.open)c.onclick=()=>openSetup(k);
     g.append(c);
-  });
+  })});
 }
 
 const visibleParams=()=>PL().params.filter(pa=>!pa.when||pa.when(P));
