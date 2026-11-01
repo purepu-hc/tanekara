@@ -3482,6 +3482,104 @@ const RICE = {
   ],
 };
 
+/* ---- 綿花(ワタ) ---- */
+const COTTON = {
+  name:'綿花', kind:'ワタ(コットン)', icon:'cotton', cat:'veg', open:true, multiYear:false, tickMs:85, level:'★★☆ 約5か月',
+  desc:'種から育てて、秋にふわふわの白いワタがとれる。花は1日で色が変わるふしぎな花。',
+  months:[4,5,6,7,8,9,10,11],
+  params:[
+    {id:'month',label:'種をまく時期',opts:[[4,'4月中旬'],[5,'5月中旬'],[7,'7月上旬']]},
+    {id:'soak',label:'種の準備',opts:[['soak','ひと晩、水につけてからまく'],['dry','そのまままく']]},
+    {id:'place',label:'場所',opts:[['sun','一日中日なた'],['half','半日かげ'],['shade','日かげ']]},
+    {id:'pot',label:'植える所',opts:[['g','畑'],['l','深めの大きなプランター'],['s','小さな鉢']]},
+    {id:'water',label:'水やり',opts:[['dry','土の表面が乾いたら、たっぷり'],['daily','乾いていなくても毎日たっぷり'],['rare','ほとんどやらない']]},
+    {id:'fert',label:'肥料',opts:[['good','元肥を少しと、花が咲きはじめたら追肥'],['lots','チッソの多い肥料をたっぷり'],['none','なし']]},
+  ],
+  evaluate(p){
+    const r=newEval(),m=+p.month,pot=p.pot!='g',sm=daysBetween(D(+p.month==7?7:5,+p.month==7?5:15),D(8,5));
+    if(m==4) r.kill(20,'4月はまだ土が冷たく(ワタの芽が出るのは20℃くらいから)、種がくさって芽が出なかった',true);
+    else if(m==5) r.good('5月中旬、土があたたかくなってからまいて、そろって芽が出た');
+    else {r.bad(20,'まくのがおそく、寒くなる前にはじけた実が少なかった');r.capTo(2)}
+    if(p.soak=='soak') r.good('ひと晩水につけて、かたい種が水を吸い、早く芽が出た');
+    else r.bad(10,'かたい種がなかなか水を吸わず、芽が出るのがおそく、そろわなかった');
+    if(p.place=='sun') r.good('一日中の日なたで、たくさん花が咲いた');
+    else if(p.place=='half'){r.bad(15,'日が足りず、花と実が少なかった');r.capTo(3)}
+    else r.nob('日かげでは、ひょろひょろのびるだけで花が咲かなかった');
+    if(p.pot=='g') r.good('畑で根がまっすぐ深くのびた');
+    else if(p.pot=='l') r.good('深めのプランターで、まっすぐな根(直根)がのびのび育った');
+    else {r.bad(20,'小さな鉢で根がつまり、実が少なかった');r.capTo(2)}
+    if(p.water=='dry') r.good('乾いたらたっぷりの水やりで、根が元気だった');
+    else if(p.water=='daily'){r.bad(15,'いつも土がしめっていて、根が弱った(ワタはしめりすぎがきらい)');r.capTo(3)}
+    else { if(pot) r.kill(sm,'真夏にプランターがカラカラになり、水切れで枯れた'); else {r.bad(15,'水が足りず、つぼみや若い実が落ちた');r.capTo(3)} }
+    if(p.fert=='good') r.good('肥料は少なめ、花が咲いてから追肥して、実がよく太った');
+    else if(p.fert=='lots'){r.bad(20,'チッソが多すぎて葉ばかりしげり、花が少なかった');r.capTo(2)}
+    else r.bad(10,'肥料なしでも育ったが、実は少なめだった');
+    return r;
+  },
+  timeline(p){const m=+p.month||5,late=m==7,start=m==4?D(4,15):m==5?D(5,15):D(7,5);
+    return {start,germDay:p.soak=='dry'?14:7,flowerFrom:daysBetween(start,late?D(9,1):D(7,20)),openFrom:daysBetween(start,late?D(10,25):D(9,15)),endDay:daysBetween(start,late?D(11,25):D(10,31))}},
+  eventCount:()=>3, eventMinDay:(p,tl)=>tl.germDay+5, step:()=>3,
+  startLog:S=>`${S.tl.start.getMonth()+1}月${S.tl.start.getDate()}日、ワタの種をまいた。`,
+  container:S=>S.p.pot=='l'?'p':S.p.pot,
+  milestones(S,say){const T=S.tl,d=S.day;
+    if(S.noSprout){if(d>=T.germDay+5)say('ng','芽が出てこない…');return}
+    if(d>=T.germDay)say('g','まるいふたばが出た！');
+    if(S.noBloom){if(d>=T.flowerFrom)say('n','つぼみがつかない…');return}
+    if(d>=T.flowerFrom)say('f','クリーム色の花が咲いた！');
+    if(d>=T.flowerFrom+2)say('f2','きのうの花が、ピンク色に変わってしぼんだ！ワタの花は1日でおしまい。');
+    if(d>=T.flowerFrom+10)say('b','花のあとに、緑色の実(コットンボール)がふくらんできた。');
+    if(d>=T.openFrom)say('o','実がはじけて、中から白いワタが出てきた！');
+    if(d>=T.endDay-3)say('h','ふわふわのワタを収穫した！');},
+  rank(t){return t==4?'白いワタがふわふわ大豊作！':VEG_RANK(t)},
+  drawPlant(px,S,y0){
+    const T=S.tl,F=S.flags,d=S.day,dead=S.dead;
+    if(S.noSprout||d<T.germDay){[-6,0,6].forEach(dx=>px(32+dx,y0+2,'#6b5a4a',2,2));return}
+    const g=vprog(d,T.germDay,T.flowerFrom+20);
+    const H=Math.round((F.tall?36:30)*(0.12+0.88*g)*(S.noBloom?0.9:1));
+    const leaf=dead?'#a1887f':(d>=T.openFrom+15?'#9a7a3a':(d>=T.openFrom?'#7a8a3a':'#3f8a3a'));
+    const stem=dead?'#8d7a6a':'#7a4a3a';
+    line(px,32,y0,32,y0-H,stem);
+    if(H<6){px(29,y0-H-1,leaf,3,2);px(33,y0-H-1,leaf,3,2);return}
+    const br=[];
+    for(let j=5;j<H-2;j+=4){const s=(Math.round(j/4))%2?1:-1,L=Math.max(3,Math.round((H-j)/2.6));line(px,32,y0-j,32+s*L,y0-j-4,stem);br.push([32+s*L,y0-j-4],[32+s*Math.round(L/2),y0-j-2])}
+    for(let j=4;j<=H;j+=4){const s=(j/4)%2?1:-1;drawPattern(px,32+(s>0?1:-6),y0-j-2,['g.g.g','ggggg','.ggg.'],{g:leaf})}
+    br.forEach(([x,y],k)=>{if(k%2==0)drawPattern(px,x-2,y-1,['g.g.g','ggggg','.ggg.'],{g:leaf})});
+    if(dead||S.noBloom||d<T.flowerFrom-5)return;
+    const spots=[[32,y0-H-1]].concat(br),n=Math.min(spots.length,[0,1,3,6,10][S.tier()]);
+    for(let i=0;i<n;i++){
+      const [x,y]=spots[i],st=d-T.flowerFrom-i*4;
+      if(st<0){px(x,y-1,'#8fbf5a',2,2);continue}
+      if(d<T.openFrom+i*3){
+        if(st<2&&i%2==0)drawPattern(px,x-1,y-3,['.c.','ccc','.c.'],{c:'#fff3bf'});
+        else if(st<4&&i%2==0)drawPattern(px,x-1,y-3,['.p.','ppp'],{p:'#f783ac'});
+        else drawPattern(px,x-1,y-3,['.g.','ggg','ggg','.g.'],{g:'#5c940d'});
+      }else{
+        const w=F.mold&&i%3==0?'#b0a890':'#ffffff';
+        drawPattern(px,x-2,y-4,['.www.','wwwww','wwwww','b.w.b'],{w,b:'#7a5a3a'});
+      }
+    }
+  },
+  events:[
+    {id:'tekishin',force:true,cond:(p,tl,S)=>!S.fatal&&!S.noBloom,dayRange:(p,tl)=>[tl.flowerFrom-25,tl.flowerFrom-12],title:'ぐんぐんのびた',text:()=>'背の高さが60cmくらいになった。まだまだ上へのびそうだ。',
+      choices:()=>[
+        {label:'てっぺんの芽をつむ(摘心)',ef:{good:true,note:'摘心でわき枝がふえ、花と実がたくさんついた'}},
+        {label:'そのまま、どこまでものばす',ef:{q:-10,set:{tall:true},note:'ひょろりと高くなりすぎて、実の数が少なかった'}}]},
+    {id:'harvest',force:true,cond:(p,tl,S)=>!S.fatal&&!S.noBloom,dayRange:(p,tl)=>[tl.openFrom+5,tl.openFrom+15],title:'ワタがはじけた！',text:()=>'実がはじけて、白いワタがふわっと出てきた。でも明日から雨がつづくらしい。',
+      choices:()=>[
+        {label:'晴れているうちに、乾いたワタをつまんで収穫する',ef:{good:true,note:'晴れの日に、乾いたふわふわのワタを収穫した'}},
+        {label:'まだ実についているワタも、雨のあとでまとめて取る',ef:{q:-15,set:{mold:true},note:'雨にぬれたワタが黒っぽくなり、カビてしまった'}}]},
+    {id:'seed',cond:(p,tl,S)=>!S.fatal&&!S.noBloom,dayRange:(p,tl)=>[tl.openFrom+16,tl.endDay-5],title:'ワタの中の種',text:()=>'収穫したワタの中に、黒っぽい種がいくつも入っている。',
+      choices:()=>[
+        {label:'種をとりだして、来年まく分を紙ぶくろで保存する',ef:{good:true,note:'種を保存した。来年もワタが育てられる'}},
+        {label:'ワタごと全部すてる',ef:{q:-5,note:'種をすててしまった。来年の分がない…'}}]},
+    {id:'meiga',from:[7,15],to:[9,10],cond:(p,tl,S)=>!S.fatal,title:'葉がくるくる',text:()=>'葉がくるっと筒のように巻かれている。中に緑色のイモムシ(ワタノメイガの幼虫)がいる。',
+      choices:()=>[
+        {label:'巻かれた葉ごと取って、イモムシを取りのぞく',ef:{good:true,note:'ワタノメイガの幼虫を取りのぞいた'}},
+        {label:'放っておく',ef:{q:-15,note:'葉をたくさん食べられて、実が育たなかった'}}]},
+    EV_APHID,EV_TYPHOON,
+  ],
+};
+
 const PLANTS = {
   asagao: ASAGAO,
   sakura: SAKURA,
@@ -3513,6 +3611,7 @@ const PLANTS = {
   lettuce: LETTUCE,
   jaga: JAGA,
   rice: RICE,
+  cotton: COTTON,
   more:{name:'？？？',kind:'追加予定',icon:'more',open:false},
 };
 
@@ -3552,6 +3651,9 @@ function drawIcon(cv,type){
     if(type=='ninjin'){for(let k=-3;k<=3;k++)for(let j=0;j<8;j++)if((j+k)%2==0)px(12+k*(j/8)*2,11-j,'#3f8a3a');for(let j=0;j<10;j++)px(11+(j<7?0:1),13+j,'#f76707',j<7?3:1,1)}}
   if(type=='lettuce'){for(let a=0;a<12;a++){const g=Math.PI+a/11*Math.PI;for(let k=1;k<10;k++)px(12+Math.cos(g)*k,18+Math.sin(g)*k*0.8,a%2?'#69db7c':'#40c057')}drawPattern(px,8,9,['.bbbbbbb.','bbbbbbbbb','bbbbbbbbb','bbbbbbbbb','.bbbbbbb.'],{b:'#b2f2bb'})}
   if(type=='rice'){for(let j=0;j<12;j++){const w=16-Math.floor(j/3);px(12-w/2,12+j,j<1?'#364fc7':'#4c6ef5',w,1)}px(5,12,'#74c0fc',14,2);for(let i=0;i<7;i++)line(px,12,13,6+i*2,3+(i%2),'#c9b458');[[6,3],[10,2],[14,2],[18,3]].forEach(([x,y])=>{for(let k=0;k<4;k++)px(x+k*0.5,y+k,'#e0b040')})}
+  if(type=='cotton'){line(px,12,22,12,8,'#7a4a3a');line(px,12,17,6,12,'#7a4a3a');line(px,12,14,18,10,'#7a4a3a');
+    drawPattern(px,3,17,['g.g.g','ggggg','.ggg.'],{g:'#3f8a3a'});drawPattern(px,15,16,['g.g.g','ggggg','.ggg.'],{g:'#3f8a3a'});
+    [[12,5],[6,9],[18,7]].forEach(([x,y])=>drawPattern(px,x-3,y-2,['..ww...','.wwwww.','wwwwwww','wwwwwww','.wwwww.','b..w..b'],{w:'#ffffff',b:'#7a5a3a'}))}
   if(type=='more'){px(0,0,'#e8e0cc',24,24);drawPattern(px,8,5,['.xxx.','x...x','...x.','..x..','.....','..x..'],{x:'#8a7a66'})}
 }
 const WX_NAME={sun:'はれ',cloud:'くもり',rain:'雨',storm:'台風',snow:'雪'};
@@ -3623,7 +3725,7 @@ const PL=()=>PLANTS[plantKey];
 function buildTitle(){
   const g=$('plantGrid');g.innerHTML='';
   const ents=Object.entries(PLANTS);
-  const groups=[['花・木',ents.filter(([k,pl])=>pl.open&&pl.cat!='veg')],['野菜・お米',ents.filter(([k,pl])=>pl.cat=='veg')],['',ents.filter(([k,pl])=>!pl.open)]];
+  const groups=[['花・木',ents.filter(([k,pl])=>pl.open&&pl.cat!='veg')],['野菜・お米・綿花',ents.filter(([k,pl])=>pl.cat=='veg')],['',ents.filter(([k,pl])=>!pl.open)]];
   groups.forEach(([title,list])=>{if(!list.length)return;if(title)g.insertAdjacentHTML('beforeend',`<div class="cat">${title}</div>`);list.forEach(([k,pl])=>{
     const c=document.createElement('div');c.className='card '+(pl.open?'open':'locked');
     const cv=document.createElement('canvas');cv.width=24;cv.height=24;drawIcon(cv,pl.icon);
